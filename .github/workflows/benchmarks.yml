@@ -1,0 +1,136 @@
+name: MIGraphX Benchmark standalone/provider
+
+on:
+  workflow_call:
+    inputs:
+      rocm_version:
+        type: string
+        description: ROCm release version
+        required: true
+      script_repo:
+        type: string
+        description: Script repository
+        required: false
+      result_path:
+        type: string
+        description: Result Path
+        required: false
+      result_repo:
+        type: string
+        description: Result repository
+        required: false
+    secrets:
+      gh_token:
+        description: 'Github Access Token'
+        required: true
+
+env:
+  SCRIPT_PATH: benchmark-utils
+  RESULT_PATH: comparison-results
+
+jobs:
+  check_image_version:
+    name: Check Image Version
+    runs-on: self-hosted
+    outputs:
+      image: ${{ steps.check_image.outputs.image }}
+    steps:
+      - name: Check new image
+        id: check_image
+        run: |
+          if [ -z "$(docker images -q migraphx-ort:`date +%Y%m%d`)" ]; then
+            echo "::set-output name=image::true"
+          fi
+  build_image:
+    name: Build New Image
+    runs-on: self-hosted
+    needs: check_image_version
+    if: ${{ needs.check_image_version.outputs.image == 'true' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Checkout Utils
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.script_repo }}
+          path: ${{ env.SCRIPT_PATH }}
+          token: ${{ secrets.gh_token }}
+
+      - name: Docker build
+        run: |
+          cd $GITHUB_WORKSPACE/${{ env.SCRIPT_PATH }}/dockerfiles
+          docker build --build-arg BASE_IMAGE="rocm/pytorch:rocm${{ inputs.rocm_version }}_ubuntu20.04_py3.7_pytorch_1.10.0" -t "migraphx-ort:$(date +%Y%m%d)" --no-cache -f Ort.Dockerfile .
+  run_benchmark:
+    name: Run benchmark
+    runs-on: self-hosted
+    if: ${{ always() }}
+    outputs:
+      result_time_start: ${{ steps.result_time.outputs.result_time_start }}
+    needs: build_image
+    steps:
+      - name: Checkout Utils
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ inputs.script_repo }}
+          path: ${{ env.SCRIPT_PATH }}
+          token: ${{ secrets.gh_token }}
+      - name: Export start time
+        id: result_time
+        run: |
+          RESULT_DATE=$(date '+%Y-%m-%d-%H-%M')
+          echo "::set-output name=result_time_start::$RESULT_DATE"
+
+      - name: Execute benchmark script
+        run: >
+          docker run -e TZ=America/New_York
+          -e TARGET=gpu
+          -e TEST_RESULTDIR=/test-results
+          --device=/dev/dri
+          --device=/dev/kfd
+          --network=host
+          --group-add=video 
+          -v ${{ inputs.result_path }}:/test-results
+          -v $GITHUB_WORKSPACE/${{ env.SCRIPT_PATH }}:/src
+          --workdir /src/scripts/
+          migraphx-ort:$(date +%Y%m%d) /bin/bash ort_benchmark.sh
+
+      - name: Delete old images/containers
+        run: |
+          docker container prune -f
+          if [[ $(docker images --filter=reference="migraphx-ort:20*" | grep -v $(date +%Y%m%d) | awk 'NR>1 {print $3}') ]]; then
+            docker rmi -f $(docker images --filter=reference="migraphx-ort:20*" | grep -v $(date +%Y%m%d) | awk 'NR>1 {print $3}')
+          fi
+          
+  git_push_result:
+    name: Push result to Github
+    runs-on: self-hosted
+    if: ${{ always() }}
+    needs: run_benchmark
+    steps:
+      - name: Checkout Results
+        uses: actions/checkout@v2
+        with:
+          repository: ${{ inputs.result_repo }}
+          path: ${{ env.RESULT_PATH }}
+          token: ${{ secrets.gh_token }}
+
+      - name: Execute detail report script
+        run: |
+          python3 $GITHUB_WORKSPACE/${{ env.SCRIPT_PATH }}/scripts/benchmark_report_detail.py \
+          -i ${{ inputs.result_path }}/onnxruntime-${{ needs.run_benchmark.outputs.result_time_start }}/dashboard-detail.csv \
+          -o $GITHUB_WORKSPACE/${{ env.RESULT_PATH }}/migraphx-result-detail-${{ needs.run_benchmark.outputs.result_time_start }}.csv
+      
+      - name: Execute excel report script
+        run: |
+          python3 $GITHUB_WORKSPACE/${{ env.SCRIPT_PATH }}/scripts/compare.py \
+          -b $GITHUB_WORKSPACE/${{ env.RESULT_PATH }}
+      
+      - name: Push report
+        run: |
+          cd $GITHUB_WORKSPACE/${{ env.RESULT_PATH }}/
+          git add .
+          git config --local user.email github-actions
+          git config --local user.name github-actions@github.com
+          git commit -m "Push report" -a
+          git push
