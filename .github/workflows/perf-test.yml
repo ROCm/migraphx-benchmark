@@ -43,9 +43,22 @@ env:
   BRANCH_NAME: ${{ github.base_ref }}
 
 jobs:
+  check_concurrency:
+    name: Check for running instances
+    runs-on: self-hosted
+    steps:
+      - name: main
+        uses: ahmadnassri/action-workflow-queue@v1
+        with:
+          github-token: ${{ secrets.gh_token }}
+          timeout: 18000000
+          delay: 60000
+  
   build_image:
     name: Build MiGraphX Image
     runs-on: self-hosted
+    if: ${{ github.event.action != 'closed' }}
+    needs: check_concurrency
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
@@ -79,7 +92,7 @@ jobs:
   execute_scripts:
     name: Execute scripts
     runs-on: self-hosted
-    if: ${{ always() }}
+    if: ${{ github.event.action != 'closed' }}
     needs: build_image
     env:
       SAVED_MODELS_PATH: "/usr/share/migraphx/saved-models"
@@ -133,7 +146,7 @@ jobs:
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/report.py \
           -t '${{ env.TEST_RESULTS_PATH }}' \
           -r '${{ env.REPORTS_PATH }}'
-
+          
           cp -r ${{ env.REPORTS_PATH }}/* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
 
           cd $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
@@ -186,12 +199,22 @@ jobs:
           ignore_cert: true
           attachments: ${{ steps.last_report.outputs.latest}}
           priority: normal
-      
+  
+  clean_pr_data:
+    name: Clean merged PR data
+    runs-on: self-hosted
+    if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
+    env:
+      TEST_RESULTS_PATH: "/usr/share/migraphx/test-results"
+      MIGRAPHX_PATH: "/usr/share/migraphx"
+    steps:
+      - name: Update PR env
+        run: |
+          echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
       - name: Clean merged PR data
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
         run: >
           docker run
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx
           --workdir /migraphx/sh
-          migraphx-rocm:${{ inputs.rocm_release }}-${{ needs.build_image.outputs.git_sha }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }}"
+          rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }}"
