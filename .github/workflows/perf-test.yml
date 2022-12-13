@@ -36,7 +36,7 @@ env:
   MIOPENTUNE: miopen-dbs/rocm${{ inputs.rocm_release }}
   REPORTS_DIR: migraphx-reports
   MAIL_TO: dl.dl-migraphx-perfrun@amd.com
-  MAIL_CC: igor.mirosavljevic@htecgroup.com,djordje.petrovic@htecgroup.com,milos.miljanovic@htecgroup.com
+  MAIL_CC: igor.mirosavljevic@htecgroup.com,djordje.petrovic@htecgroup.com,milos.miljanovic@htecgroup.com,pavle.jacovic@htecgroup.com
   MAIL_FROM: GH Actions
   MAIL_SUBJECT: GH Actions send email test
   MAIL_BODY: Testing GH Actions workflow
@@ -92,11 +92,13 @@ jobs:
         run: >
           docker run -e TZ=America/Chicago
           -e TARGET=gpu
+          -e PYTHONPATH=/src/AMDMIGraphX/build/lib
           --device=/dev/dri
           --device=/dev/kfd
           --network=host
           --group-add=video
           -v /usr/share/migraphx/saved-models:/saved-models:ro
+          -v /usr/share/migraphx/new-saved-models:/new-saved-models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           --workdir /migraphx/sh
@@ -144,14 +146,31 @@ jobs:
             flagoptions="${{ inputs.flags }}"
           fi 
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/comment.py -t ${TEST_RESULTS_PATH//-$PR_ID/} -n ${{ inputs.result_number }} $flagoptions -p
-      
+
       - name: Create a comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
         uses: marocchino/sticky-pull-request-comment@v2
         with:
+          header: performance
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ github.workspace }}/${{ env.UTILS_DIR }}/scripts/temp.md
       
+      - name: Get latest accuracy results
+        id: accuracy
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          cd ${{ env.TEST_RESULTS_PATH }}
+          ACCURACY=$(ls -dt accuracy* | head -1)
+          echo "last_test=$ACCURACY" >> $GITHUB_OUTPUT
+
+      - name: Create accuracy comment on PR
+        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: accuracy
+          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          path: ${{ env.TEST_RESULTS_PATH }}/${{ steps.accuracy.outputs.last_test }}/results.md
+
       - name: Get latest report
         id: last_report
         if: ${{ github.event_name == 'schedule' }}
