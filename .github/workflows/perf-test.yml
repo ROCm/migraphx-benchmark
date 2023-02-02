@@ -50,6 +50,7 @@ env:
 jobs:
   performance_test:
     name: MIGraphX Performance
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip bot checks') }}
     runs-on: self-hosted
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
@@ -127,7 +128,9 @@ jobs:
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/report.py \
           -t '${{ env.TEST_RESULTS_PATH }}' \
           -r '${{ env.REPORTS_PATH }}'
-          
+          python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/history.py -n \
+          -t '${{ env.TEST_RESULTS_PATH }}' \
+          -r '${{ env.REPORTS_PATH }}'
           cp -r ${{ env.REPORTS_PATH }}/* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
           cd $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
           git add .
@@ -146,7 +149,7 @@ jobs:
             flagoptions="${{ inputs.flags }}"
           fi 
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/comment.py -t ${TEST_RESULTS_PATH//-$PR_ID/} -n ${{ inputs.result_number }} $flagoptions -p
-
+      
       - name: Create a comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
         uses: marocchino/sticky-pull-request-comment@v2
@@ -170,7 +173,7 @@ jobs:
           header: accuracy
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ env.TEST_RESULTS_PATH }}/${{ steps.accuracy.outputs.last_test }}/results.md
-
+      
       - name: Get latest report
         id: last_report
         if: ${{ github.event_name == 'schedule' }}
