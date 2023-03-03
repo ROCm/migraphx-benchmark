@@ -17,6 +17,14 @@ on:
         type: string
         description: 'Repository for history'
         required: true
+      benchmark_utils_repo:
+        type: string
+        description: Repository where benchmark utils are stored
+        required: true
+      organization:
+        type: string
+        description: Organization based on which location of files will be different
+        required: true
     secrets:
       gh_token:
         description: 'Github Access Token'
@@ -29,10 +37,10 @@ on:
         required: true
 
 env:
-  TEST_RESULTS_PATH: "/usr/share/migraphx/test-results"
+  TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results
   UTILS_DIR: benchmark-utils
   REPORTS_DIR: migraphx-reports
-  REPORTS_PATH: "/usr/share/migraphx/reports"
+  REPORTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/reports
 
 jobs:
   performance_test:
@@ -46,7 +54,7 @@ jobs:
       - name: Checkout utils
         uses: actions/checkout@v3
         with:
-          repository: "ROCmSoftwarePlatform/migraphx-benchmark-utils"
+          repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
           token: ${{ secrets.gh_token }}
       
