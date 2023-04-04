@@ -57,6 +57,8 @@ env:
   REPORTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/reports
   TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results
   MIGRAPHX_PATH: /usr/share/migraphx/${{ inputs.organization }}
+  PERFORMANCE_DIR: performance-backup
+
 
 jobs:
   performance_test:
@@ -217,6 +219,27 @@ jobs:
           attachments: ${{ steps.last_report.outputs.latest}}
           priority: normal
 
+      - name : Checkout for backup
+        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}
+        uses: actions/checkout@v3
+        with:
+          repository: migraphx-benchmark/performance-backup
+          path: ${{ env.PERFORMANCE_DIR }}
+          token: ${{ secrets.gh_token }}
+
+      - name: Backup
+        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}   
+        run : |
+          if [ ${{ inputs.organization }} == "AMD" ]; then
+            cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
+            cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
+            git add .
+            git status
+            git config --local user.email performance-backup@github.com
+            git config --local user.name performance-backup
+            git commit -m "Backup latest perf results" -a
+            git push
+          
       - name: Clean merged PR data
         if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
         run: >
