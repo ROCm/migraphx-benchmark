@@ -239,6 +239,7 @@ jobs:
             git config --local user.name performance-backup
             git commit -m "Backup latest perf results" -a
             git push
+          fi  
           
       - name: Clean merged PR data
         if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
