@@ -104,7 +104,6 @@ jobs:
           --build-arg BRANCH=${{ env.BRANCH_NAME }} 
           --build-arg DOCKERBASE=${{ env.DOCKERBASE }}
           --build-arg MIOPENTUNE=${{ env.MIOPENTUNE }}
-          --build-arg UTILS_DIR=$GITHUB_WORKSPACE/${{ env.UTILS_DIR }}
           -t "migraphx-rocm:${{ inputs.rocm_release }}-${{ steps.git_sha.outputs.git_sha }}" 
           -f dockerfiles/Daily.Dockerfile .
 
