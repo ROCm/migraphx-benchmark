@@ -226,20 +226,6 @@ jobs:
           repository: migraphx-benchmark/performance-backup
           path: ${{ env.PERFORMANCE_DIR }}
           token: ${{ secrets.gh_token }}
-
-      - name: Backup
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}   
-        run : |
-          if [ ${{ inputs.organization }} == "AMD" ]; then
-            cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
-            cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
-            git add .
-            git status
-            git config --local user.email performance-backup@github.com
-            git config --local user.name performance-backup
-            git commit -m "Backup latest perf results" -a
-            git push
-          fi  
           
       - name: Clean merged PR data
         if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
@@ -258,3 +244,17 @@ jobs:
           -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx
           --workdir /migraphx/sh
           rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }} closed"
+
+      - name: Backup
+        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}   
+        run : |
+          if [ ${{ inputs.organization }} == "AMD" ]; then
+            cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
+            cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
+            git add .
+            git status
+            git config --local user.email performance-backup@github.com
+            git config --local user.name performance-backup
+            git commit -m "Backup latest perf results" -a
+            git push
+          fi  
