@@ -31,6 +31,10 @@ on:
         type: string
         description: -m for Max value; -s for Std dev; -r 'path' for Threshold file
         required: true
+      performance_backup_repo:
+        type: string
+        description: Repository for backup 
+        required: true          
     secrets:
       gh_token:
         description: 'Github Access Token'
@@ -220,33 +224,31 @@ jobs:
           priority: normal
 
       - name : Checkout for backup
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}
+        if: ${{ github.event_name == 'schedule' || ( github.event.action == 'closed' && github.event.pull_request.merged == true) }}
         uses: actions/checkout@v3
         with:
-          repository: migraphx-benchmark/performance-backup
+          repository: ${{ inputs.performance_backup_repo }}
           path: ${{ env.PERFORMANCE_DIR }}
           token: ${{ secrets.gh_token }}
 
       - name: Backup
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}} || ${{ github.event_name == 'schedule' }}   
+        if: ${{ github.event_name == 'schedule' || ( github.event.action == 'closed' && github.event.pull_request.merged == true) }}   
         run : |
-          if [ ${{ inputs.organization }} == "AMD" ]; then
-            cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
-            cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
-            git add .
-            git status
-            git config --local user.email performance-backup@github.com
-            git config --local user.name performance-backup
-            git commit -m "Backup latest perf results" -a
-            git push
-          fi  
-          
+          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}/${{ inputs.organization }}
+          cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
+          git add .
+          git status
+          git config --local user.email github-actions
+          git config --local user.name github-actions@github.com
+          git commit -m "Backup latest perf results" -a
+          git push
+
       - name: Clean merged PR data
         if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
         run: >
           docker run
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
-          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx
+          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx/${{ inputs.organization }}
           --workdir /migraphx/sh
           rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }} merged"
 
@@ -255,6 +257,6 @@ jobs:
         run: >
           docker run
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
-          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx
+          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx/${{ inputs.organization }}
           --workdir /migraphx/sh
           rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }} closed"
