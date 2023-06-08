@@ -118,6 +118,7 @@ jobs:
           docker run -e TZ=America/Chicago
           -e TARGET=gpu
           -e PYTHONPATH=/src/AMDMIGraphX/build/lib
+          -e USE_RBUILD=1
           --device=/dev/dri
           --device=/dev/kfd
           --network=host
