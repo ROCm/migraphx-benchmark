@@ -128,7 +128,7 @@ jobs:
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           --workdir /migraphx/sh
-          migraphx-rocm:${{ inputs.rocm_release }}-${{ steps.git_sha.outputs.git_sha }} /bin/bash performance_tests.sh ${{ inputs.model_timeout }}
+          migraphx-rocm:${{ inputs.rocm_release }}-${{ steps.git_sha.outputs.git_sha }} /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
 
       - name: Delete old images/containers
         if: ${{ github.event_name == 'schedule' }}
