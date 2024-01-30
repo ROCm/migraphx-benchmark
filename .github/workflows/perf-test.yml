@@ -85,10 +85,10 @@ jobs:
           echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
 
       - name: Checkout utils
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
@@ -141,7 +141,7 @@ jobs:
 
       - name: Checkout report's repo
         if: ${{ github.event_name == 'schedule' }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.performance_reports_repo }}
           path: ${{ env.REPORTS_DIR }}
@@ -177,7 +177,7 @@ jobs:
 
       - name: Create a comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v2.8
         with:
           header: performance
           GITHUB_TOKEN: ${{ secrets.gh_token }}
@@ -193,7 +193,7 @@ jobs:
 
       - name: Create accuracy comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v2.8
         with:
           header: accuracy
           GITHUB_TOKEN: ${{ secrets.gh_token }}
@@ -227,7 +227,7 @@ jobs:
 
       - name : Checkout for backup
         if: ${{ github.event_name == 'schedule' || ( github.event.action == 'closed' && github.event.pull_request.merged == true) }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.performance_backup_repo }}
           path: ${{ env.PERFORMANCE_DIR }}

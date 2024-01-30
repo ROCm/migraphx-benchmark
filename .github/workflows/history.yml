@@ -49,17 +49,17 @@ jobs:
     steps:
 
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
       
       - name: Checkout utils
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
           token: ${{ secrets.gh_token }}
       
       - name: Checkout report's repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.history_repo }}
           path: ${{ env.REPORTS_DIR }}

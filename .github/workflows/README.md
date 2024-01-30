@@ -7,8 +7,8 @@ This is a GitHub Actions workflow that benchmarks the performance of MiGraphX, a
 </p>
 
 - ## Trigger
-    Note: Right now its not working because [benchmark.yaml](https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/.github/workflows/benchmark.yaml) workflow needed to be updated.
-     - The workflow will be triggered on workflow dispatch event from caller workflow [benchmark.yaml](https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/.github/workflows/benchmark.yaml)
+    Note: Right now its not working because [benchmark.yaml](https://github.com/ROCm/AMDMIGraphX/blob/develop/.github/workflows/benchmark.yaml) workflow needed to be updated.
+     - The workflow will be triggered on workflow dispatch event from caller workflow [benchmark.yaml](https://github.com/ROCm/AMDMIGraphX/blob/develop/.github/workflows/benchmark.yaml)
 
 - ## Input Parameters
     The workflow uses the following input parameters:
@@ -38,7 +38,7 @@ This is a GitHub Actions workflow that benchmarks the performance of MiGraphX, a
 
      - `git_push_result`: This job pushes the benchmark results to a GitHub repository. It runs on a self-hosted machine and depends on the `run_benchmark` job. It checks out the results repository, executes two Python scripts to generate a report, and pushes the report to the results repository. The job sets no outputs.
 
-    For more details, please refer to the [benchmarks.yml](https://github.com/ROCmSoftwarePlatform/migraphx-benchmark/blob/main/.github/workflows/benchmarks.yml) file in the repository.
+    For more details, please refer to the [benchmarks.yml](https://github.com/ROCm/migraphx-benchmark/blob/main/.github/workflows/benchmarks.yml) file in the repository.
 
 ---
 ## `history.yml`
@@ -49,7 +49,7 @@ This workflow analyzes the historical performance of the MIGraphX project by run
 
 - ## Trigger
      - The workflow will be triggered on workflow dispatch event from caller workflow 
-[history.yaml](https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/.github/workflows/history.yaml) 
+[history.yaml](https://github.com/ROCm/AMDMIGraphX/blob/develop/.github/workflows/history.yaml) 
 
 - ## Input Parameters
     The workflow uses the following input parameters:
@@ -88,7 +88,7 @@ This workflow analyzes the historical performance of the MIGraphX project by run
 
      - `Get link to results repository`: This step prints a link to the historical analysis report repository specified in the inputs, which can be used to access the report.
 
-    For more details, please refer to the [history.yml](https://github.com/ROCmSoftwarePlatform/migraphx-benchmark/blob/main/.github/workflows/history.yml) file in the repository.
+    For more details, please refer to the [history.yml](https://github.com/ROCm/migraphx-benchmark/blob/main/.github/workflows/history.yml) file in the repository.
 
 ---
 
@@ -100,7 +100,7 @@ Overall, this workflow is designed for running performance tests on the MIGraphX
 
 - ## Trigger
      - The workflow will be triggered on workflow dispatch event from caller workflow 
-[performance.yaml](https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/.github/workflows/performance.yaml) 
+[performance.yaml](https://github.com/ROCm/AMDMIGraphX/blob/develop/.github/workflows/performance.yaml) 
 
 - ## Input Parameters
     The workflow uses the following input parameters:
@@ -199,7 +199,7 @@ Overall, this workflow is designed for running performance tests on the MIGraphX
 
 
 
-    For more details, please refer to the [perf-test.yml](https://github.com/ROCmSoftwarePlatform/migraphx-benchmark/blob/main/.github/workflows/perf-test.yml) file in the repository.
+    For more details, please refer to the [perf-test.yml](https://github.com/ROCm/migraphx-benchmark/blob/main/.github/workflows/perf-test.yml) file in the repository.
 
 
 ---
@@ -212,7 +212,7 @@ This workflow automates the process of building a Docker image for the ROCm (Rad
 
 - ## Trigger
     - The workflow will be triggered on workflow dispatch event from caller workflow 
-[rocm-image-release.yaml](https://github.com/ROCmSoftwarePlatform/AMDMIGraphX/blob/develop/.github/workflows/rocm-image-release.yaml) 
+[rocm-image-release.yaml](https://github.com/ROCm/AMDMIGraphX/blob/develop/.github/workflows/rocm-image-release.yaml) 
 
 - ## Input Parameters
     The workflow uses the following input parameters:
@@ -241,7 +241,7 @@ This workflow automates the process of building a Docker image for the ROCm (Rad
 
      - `build_image`: This job builds the ROCm Docker image if the `check_image_version` job determined that a new image needs to be built. This job checks out the benchmark utilities repository, sets environment variables based on the input parameters, and runs a script to build the Docker image.
 
-    For more details, please refer to the [rocm-release.yml](https://github.com/ROCmSoftwarePlatform/migraphx-benchmark/blob/main/.github/workflows/rocm-release.yml) file in the repository.
+    For more details, please refer to the [rocm-release.yml](https://github.com/ROCm/migraphx-benchmark/blob/main/.github/workflows/rocm-release.yml) file in the repository.
 
 
 ---
