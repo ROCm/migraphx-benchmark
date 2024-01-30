@@ -48,10 +48,10 @@ jobs:
     if: ${{ needs.check_image_version.outputs.image == 'true' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
 
       - name: Checkout Utils
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.script_repo }}
           path: ${{ env.SCRIPT_PATH }}
@@ -70,7 +70,7 @@ jobs:
     needs: build_image
     steps:
       - name: Checkout Utils
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.script_repo }}
           path: ${{ env.SCRIPT_PATH }}

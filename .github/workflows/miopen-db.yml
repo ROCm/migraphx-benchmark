@@ -73,7 +73,7 @@ jobs:
       database: ${{ steps.check_database.outputs.database }}
     steps:
       - name: Checkout scripts
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.miopen_db_repo }}
           path: ${{ env.MIOPEN_PATH }}
@@ -92,7 +92,7 @@ jobs:
     if: ( needs.check_database.outputs.database == 'true' && needs.check_image_version.outputs.image == 'true' )
     steps:
       - name: Checkout scripts
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.miopen_db_repo }}
           path: ${{ env.SCRIPT_PATH}}
@@ -118,7 +118,7 @@ jobs:
     needs: [create_database, check_gpu_name]
     steps:
       - name: Checkout scripts
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.miopen_db_repo }}
           path: ${{ env.MIOPEN_PATH }}
