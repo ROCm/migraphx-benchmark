@@ -177,7 +177,7 @@ jobs:
 
       - name: Create a comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
-        uses: marocchino/sticky-pull-request-comment@v2.8
+        uses: marocchino/sticky-pull-request-comment@v2.8.0
         with:
           header: performance
           GITHUB_TOKEN: ${{ secrets.gh_token }}
@@ -193,7 +193,7 @@ jobs:
 
       - name: Create accuracy comment on PR
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
-        uses: marocchino/sticky-pull-request-comment@v2.8
+        uses: marocchino/sticky-pull-request-comment@v2.8.0
         with:
           header: accuracy
           GITHUB_TOKEN: ${{ secrets.gh_token }}
