@@ -226,7 +226,7 @@ jobs:
           priority: normal
 
       - name : Checkout for backup
-        if: ${{ github.event_name == 'schedule' || ( github.event.action == 'closed' && github.event.pull_request.merged == true) }}
+        if: ${{ github.event_name == 'schedule' }}
         uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.performance_backup_repo }}
@@ -234,7 +234,7 @@ jobs:
           token: ${{ secrets.gh_token }}
 
       - name: Backup
-        if: ${{ github.event_name == 'schedule' || ( github.event.action == 'closed' && github.event.pull_request.merged == true) }}
+        if: ${{ github.event_name == 'schedule' }}
         run : |
           cp -r ${{ env.TEST_RESULTS_PATH }}/perf-* $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}/${{ inputs.organization }}
           cd $GITHUB_WORKSPACE/${{ env.PERFORMANCE_DIR }}
@@ -245,20 +245,9 @@ jobs:
           git commit -m "Backup latest perf results" -a
           git push
 
-      - name: Clean merged PR data
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true}}
-        run: >
-          docker run
-          -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
-          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx/${{ inputs.organization }}
-          --workdir /migraphx/sh
-          rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }} merged"
-
       - name: Clean closed PR data
-        if: ${{ github.event.action == 'closed' && github.event.pull_request.merged == false}}
+        if: ${{ github.event.action == 'closed' }}
         run: >
           docker run
-          -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx/${{ inputs.organization }}
-          --workdir /migraphx/sh
-          rocm-migraphx:${{ inputs.rocm_release }} bash -c "./clean_after_pr.sh ${{ env.TEST_RESULTS_PATH }} ${{ env.PR_ID }} closed"
+          rocm-migraphx:${{ inputs.rocm_release }} bash -c "rm -rf ${{ env.TEST_RESULTS_PATH }}"
