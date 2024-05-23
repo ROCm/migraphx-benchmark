@@ -57,7 +57,7 @@ env:
   MAIL_SUBJECT: Nightly Performance run
   MAIL_BODY: Scheduled Performance test run on develop branch
   PR_ID: ${{ github.event.number }}
-  BRANCH_NAME: ${{ github.base_ref }}
+  BRANCH_NAME: develop
   REPORTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/reports
   TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results
   MIGRAPHX_PATH: /usr/share/migraphx/${{ inputs.organization }}
@@ -68,7 +68,7 @@ jobs:
   performance_test:
     name: MIGraphX Performance
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip bot checks') }}
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
