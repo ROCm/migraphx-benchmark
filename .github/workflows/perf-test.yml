@@ -75,7 +75,7 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "MI250_1")
+            "GPUD55F_1")
               GPU=0
               CPU="0-63"
               ;;
