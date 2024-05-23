@@ -77,4 +77,4 @@ jobs:
           TOKEN: ${{ secrets.gh_token }}
         run: |
           cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
-          ./build_migraphx_docker.sh ${{ inputs.benchmark-utils_repo }}
+          ./build_migraphx_docker.sh ${{ inputs.benchmark-utils_repo }} ${{ github.repository }} ${GITHUB_REF##*/}
