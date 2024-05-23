@@ -286,6 +286,9 @@ jobs:
           git commit -m "Backup latest perf results" -a
           git push
 
+      - name: Reset GPU parameters to default
+        run: sudo rocm-smi --device ${{ env.GPU }} --resetclocks
+        
       - name: Clean closed PR data
         if: ${{ github.event.action == 'closed' }}
         run: >

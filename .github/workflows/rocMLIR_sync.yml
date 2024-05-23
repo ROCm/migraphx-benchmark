@@ -76,7 +76,8 @@ jobs:
         if: ${{ github.event_name != 'pull_request' && env.skip != 'true' }}
         uses: peter-evans/create-pull-request@v6.0.4
         with:
-          token: ${{ secrets.gh_token }}
+          #token: ${{ secrets.gh_token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: Update rocMLIR main ${{ env.rocmlirsha }}
           committer: Github <noreply@github.com>
           author: ${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>
@@ -197,7 +198,8 @@ jobs:
         uses: thollander/actions-comment-pull-request@v2.5.0
         with:
           filePath: ${{ env.TEST_RESULTS_PATH }}/${{ env.comment_file }}
-          GITHUB_TOKEN: ${{ secrets.gh_token }}
+          #GITHUB_TOKEN: ${{ secrets.gh_token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           pr_number: ${{ env.PULL_REQUEST_NUMBER }}
 
       - name: Replace base docker after merge

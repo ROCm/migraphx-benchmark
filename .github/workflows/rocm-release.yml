@@ -1,4 +1,4 @@
-name: ROCM Container build
+name: ROCm base image build
 on:
   workflow_call:
     inputs:
@@ -17,6 +17,10 @@ on:
       docker_image:
         type: string
         description: Docker image name for rocm Docker build
+        required: true
+      branch_name:
+        type: string
+        description: branch to use for building base ROCm image
         required: true
       build_navi:
         type: string
@@ -37,7 +41,7 @@ env:
 jobs:
   check_image_version:
     name: Check Image Version
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     outputs:
       image: ${{ steps.check_image.outputs.image }}
     steps:
@@ -77,4 +81,4 @@ jobs:
           TOKEN: ${{ secrets.gh_token }}
         run: |
           cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
-          ./build_migraphx_docker.sh ${{ inputs.benchmark-utils_repo }}
+          ./build_migraphx_docker.sh ${{ inputs.benchmark-utils_repo }} ${{ github.repository }} ${{ inputs.branch_name }}
