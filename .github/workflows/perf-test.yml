@@ -195,7 +195,7 @@ jobs:
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/history.py -n \
           -t '${{ env.TEST_RESULTS_PATH }}' \
           -r '${{ env.REPORTS_PATH }}'
-          cp -r ${{ env.REPORTS_PATH }}/results-* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
+          cp -r ${{ env.REPORTS_PATH }}/results-* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/nightly_reports/
       
       - name: Copy performance results to repo - develop - nightly or manual
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'}}
@@ -206,8 +206,8 @@ jobs:
       - name: Copy performance results to repo - PRs
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
         run: | 
-          mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
-          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
+          mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
+          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
         
       - name: Push results to repo
         continue-on-error: true
