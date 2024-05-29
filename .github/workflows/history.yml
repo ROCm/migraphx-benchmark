@@ -45,9 +45,9 @@ env:
 jobs:
   performance_test:
     name: MIGraphX results between dates
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     steps:
-
+      
       - name: Checkout code
         uses: actions/checkout@v4.1.1
       

@@ -31,7 +31,7 @@ env:
 jobs:
   check_image_version:
     name: Check Image Version
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     outputs:
       image: ${{ steps.check_image.outputs.image }}
     steps:
@@ -43,7 +43,7 @@ jobs:
           fi
   build_image:
     name: Build New Image
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     needs: check_image_version
     if: ${{ needs.check_image_version.outputs.image == 'true' }}
     steps:
@@ -63,7 +63,7 @@ jobs:
           docker build --build-arg BASE_IMAGE="rocm/pytorch:rocm${{ inputs.rocm_version }}_ubuntu20.04_py3.7_pytorch_1.10.0" -t "migraphx-ort:$(date +%Y%m%d)" --no-cache -f Ort.Dockerfile .
   run_benchmark:
     name: Run benchmark
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     if: ${{ always() }}
     outputs:
       result_time_start: ${{ steps.result_time.outputs.result_time_start }}
@@ -104,7 +104,7 @@ jobs:
           
   git_push_result:
     name: Push result to Github
-    runs-on: self-hosted
+    runs-on: [self-hosted,performance]
     if: ${{ always() }}
     needs: run_benchmark
     steps:
