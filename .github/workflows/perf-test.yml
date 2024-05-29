@@ -153,6 +153,9 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run: >
           docker run -e TZ=America/Chicago
+          --name perf-test-$GITHUB_RUN_ID
+          --cpuset-cpus=${{ env.CPU }}
+          -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
           -e TARGET=gpu
           -e PYTHONPATH=/src/AMDMIGraphX/build/lib
           -e USE_RBUILD=1
