@@ -72,6 +72,17 @@ jobs:
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
+      - name: Clean up canceled runs
+        run: |
+          wf_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows \
+          | jq -r '.workflows[] | {id, name}| select(.name == "${{ github.workflow }}") | .id')
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -n 'input | .id')
+          docker stop perf-test-$cancel_id || true
+      
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
@@ -142,6 +153,9 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run: >
           docker run -e TZ=America/Chicago
+          --name perf-test-$GITHUB_RUN_ID
+          --cpuset-cpus=${{ env.CPU }}
+          -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
           -e TARGET=gpu
           -e PYTHONPATH=/src/AMDMIGraphX/build/lib
           -e USE_RBUILD=1
@@ -159,11 +173,11 @@ jobs:
       - name: Delete old images/containers
         if: ${{ github.event_name == 'schedule' }}
         run: |
-          docker container prune -f
+          docker container prune -f  || true
           if [[ $(docker images --filter=reference="migraphx-rocm:${{ inputs.rocm_release }}-*" | awk 'NR>1 {print $3}') ]]; then
-            docker rmi -f $(docker images --filter=reference="migraphx-rocm:${{ inputs.rocm_release }}-*" | awk 'NR>1 {print $3}')
+            docker rmi -f $(docker images --filter=reference="migraphx-rocm:${{ inputs.rocm_release }}-*" | awk 'NR>1 {print $3}')  || true
           fi
-          docker image prune -f
+          docker image prune -f  || true
 
       - name: Checkout report's repo
         uses: actions/checkout@v4.1.1
@@ -181,7 +195,7 @@ jobs:
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/history.py -n \
           -t '${{ env.TEST_RESULTS_PATH }}' \
           -r '${{ env.REPORTS_PATH }}'
-          cp -r ${{ env.REPORTS_PATH }}/results-* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
+          cp -r ${{ env.REPORTS_PATH }}/results-* $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/nightly_reports/
       
       - name: Copy performance results to repo - develop - nightly or manual
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'}}
@@ -192,8 +206,8 @@ jobs:
       - name: Copy performance results to repo - PRs
         if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
         run: | 
-          mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
-          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
+          mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
+          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
         
       - name: Push results to repo
         continue-on-error: true
