@@ -46,6 +46,7 @@ jobs:
     runs-on: [self-hosted,performance]
     steps:
       - name: Clean up canceled runs
+        continue-on-error: true
         run: |
           wf_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
           ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows \
@@ -53,7 +54,7 @@ jobs:
           cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
           ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
           | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
-          | jq -n 'input | .id')
+          | jq -n 'input | .id' || true)
           docker stop perf-test-$cancel_id || true
               
       - name: Get date
