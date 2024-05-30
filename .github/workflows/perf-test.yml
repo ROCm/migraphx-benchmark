@@ -73,6 +73,7 @@ jobs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
       - name: Clean up canceled runs
+        continue-on-error: true
         run: |
           wf_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
           ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows \
