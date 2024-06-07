@@ -81,7 +81,17 @@ jobs:
           cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
           ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
           | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
-          | jq -n 'input | .id' || true)
+          | jq -s '.[0].id' || true)
+          docker stop perf-test-$cancel_id || true
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -s '.[1].id' || true)
+          docker stop perf-test-$cancel_id || true
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -s '.[2].id' || true)
           docker stop perf-test-$cancel_id || true
       
       - name: Get runner ID
