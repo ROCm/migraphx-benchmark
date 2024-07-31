@@ -67,7 +67,7 @@ env:
 jobs:
   performance_test:
     name: MIGraphX Performance
-    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip bot checks') }}
+    if: ${{ !contains(github.event.pull_request_target.labels.*.name, 'skip bot checks') }}
     runs-on: [self-hosted,performance]
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
@@ -127,7 +127,7 @@ jobs:
           echo "MAIL_CC= " >> $GITHUB_ENV
 
       - name: Update PR env
-        if: ${{ github.event_name == 'pull_request'}}
+        if: ${{ github.event_name == 'pull_request_target'}}
         run: |
           echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
           echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
@@ -215,7 +215,7 @@ jobs:
           cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/develop/${{ steps.git_sha.outputs.git_sha }}
   
       - name: Copy performance results to repo - PRs
-        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
+        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request_target' && github.event.action != 'closed'}}
         run: | 
           mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
           cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/PRs/PR-$PR_ID/${{ steps.git_sha.outputs.git_sha }}
@@ -232,7 +232,7 @@ jobs:
 
       - name: Execute comment script
         id: auto_comment
-        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
+        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request_target' && github.event.action != 'closed'}}
         run: |
           if [ ${{ inputs.flags }} == "-r" ]; then
             flagoptions="${{ inputs.flags }} $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/"
@@ -242,7 +242,7 @@ jobs:
           python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/comment.py -t ${TEST_RESULTS_PATH//-$PR_ID/} -n ${{ inputs.result_number }} $flagoptions -p
 
       - name: Create a comment on PR
-        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
+        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request_target' && github.event.action != 'closed'}}
         uses: marocchino/sticky-pull-request-comment@v2.9.0
         with:
           header: performance
@@ -258,7 +258,7 @@ jobs:
           echo "last_test=$ACCURACY" >> $GITHUB_OUTPUT
 
       - name: Create accuracy comment on PR
-        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request' && github.event.action != 'closed'}}
+        if: ${{ github.event_name != 'schedule' && github.event_name == 'pull_request_target' && github.event.action != 'closed'}}
         uses: marocchino/sticky-pull-request-comment@v2.9.0
         with:
           header: accuracy
