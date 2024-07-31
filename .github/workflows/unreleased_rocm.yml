@@ -1,0 +1,270 @@
+name: MIGraphX Performance Tests
+
+on:
+  workflow_call:
+    inputs:
+      unreleased_rocm:
+        type: string
+        description: Unreleased ROCm version
+        required: true
+      branch_name:
+        type: string
+        description: Branch to use for building base ROCm image
+        required: true
+      rocm_release:
+        type: string
+        description: Use tuned MIOpen database for release
+        required: true
+      performance_reports_repo:
+        type: string
+        description: Result repository
+        required: true
+      benchmark_utils_repo:
+        type: string
+        description: Repository where benchmark utils are stored
+        required: true
+      organization:
+        type: string
+        description: Organization based on which location of files will be different
+        required: true
+      result_number:
+        type: string
+        description: Number of last results
+        required: true
+      model_timeout:
+        type: string
+        description: If model in performance test script passes this threshold, it will be skipped
+        required: true
+      flags:
+        type: string
+        description: -m for Max value; -s for Std dev; -r 'path' for Threshold file
+        required: true
+    secrets:
+      gh_token:
+        description: 'Github Access Token'
+        required: true
+      mail_user:
+        description: 'Email username'
+        required: true
+      mail_pass:
+        description: 'Email password'
+        required: true
+
+env:
+  UTILS_DIR: benchmark-utils
+  REPORTS_DIR: migraphx-reports
+  DOCKERBASE: unreleased_rocm:${{ inputs.unreleased_rocm }}
+  MIOPENTUNE: miopen-dbs/rocm${{ inputs.rocm_release }}
+  MAIL_TO: dl.dl-migraphx-perfrun@amd.com
+  MAIL_CC: igor.mirosavljevic@htecgroup.com
+  MAIL_FROM: GH Actions
+  MAIL_SUBJECT: Unreleased ROCm ${{ inputs.unreleased_rocm }} test
+  MAIL_BODY: Performance test with unreleased ROCm for run https://github.com/${{ github.repository }}/actions/runs/${{github.run_id }}
+  BRANCH_NAME: develop
+  REPORTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/reports
+  TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results/unreleased_ROCm
+  RELEASED_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results
+  MIGRAPHX_PATH: /usr/share/migraphx/${{ inputs.organization }}
+
+
+jobs:
+  performance_test:
+    name: Unreleased ROCm - MIGraphX performance
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip bot checks') }}
+    runs-on: [self-hosted,performance]
+    timeout-minutes: 3600
+    outputs:
+      git_sha: ${{ steps.git_sha.outputs.git_sha }}
+    steps:
+      - name: Clean up canceled runs
+        continue-on-error: true
+        run: |
+          wf_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows \
+          | jq -r '.workflows[] | {id, name}| select(.name == "${{ github.workflow }}") | .id')
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -s '.[0].id' || true)
+          docker stop perf-test-$cancel_id || true
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -s '.[1].id' || true)
+          docker stop perf-test-$cancel_id || true
+          cancel_id=$(curl -H "Authorization: token ${{ secrets.gh_token }}" \
+          ${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/$wf_id/runs?per_page=10 \
+          | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
+          | jq -s '.[2].id' || true)
+          docker stop perf-test-$cancel_id || true
+      
+      - name: Get runner ID
+        run: |
+          case "$RUNNER_NAME" in
+            "GPUD55F_1")
+              GPU=0
+              CPU="0-63"
+              ;;
+            "GPUD55F_2")
+              GPU=4
+              CPU="64-127"
+              ;;
+            *)
+              echo "Unknown RUNNER_ID: $RUNNER_NAME"
+              exit 1
+              ;;
+          esac
+          export GPU
+          export CPU
+          echo "GPU=$GPU" >> $GITHUB_ENV
+          echo "CPU=$CPU" >> $GITHUB_ENV
+      
+      - name: Set GPU parameters
+        run: sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
+      
+      - name: Install python libraries
+        run: pip install numpy pandas openpyxl
+
+      - name: Update Mailing list based on organization
+        if: ${{ inputs.organization == 'HTEC' }}
+        run: |
+          echo "MAIL_TO=$(echo "igor.mirosavljevic@htecgroup.com")" >> $GITHUB_ENV
+          echo "MAIL_CC= " >> $GITHUB_ENV
+
+      - name: Checkout code
+        uses: actions/checkout@v4.1.1
+
+      - name: Checkout utils
+        uses: actions/checkout@v4.1.1
+        with:
+          repository: ${{ inputs.benchmark_utils_repo }}
+          path: ${{ env.UTILS_DIR }}
+          token: ${{ secrets.gh_token }}
+
+      - name: Get git SHA
+        id: git_sha
+        run: |
+          cd $GITHUB_WORKSPACE
+          SHA=$(git log | head -5 | grep Merge | awk '{print $2}' | cut -c 1-6)
+          if [ -z "$SHA" ]; then
+            SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
+          fi
+          echo "git_sha=$SHA" >> $GITHUB_OUTPUT
+      
+      - name: Update Dockerfile
+        run: |
+          cd $GITHUB_WORKSPACE
+          UNRELEASED=${{inputs.unreleased_rocm}}
+          ROCM_VERSION=".apt_$UNRELEASED"
+          sed -i "s|\(http://repo.radeon.com/rocm/apt/\)[^/]*\(/ jammy main > /etc/apt/sources.list.d/rocm.list\)|\1$ROCM_VERSION\2|g" Dockerfile    
+      
+      - name: ROCm base build
+        run: |
+          cd $GITHUB_WORKSPACE
+          docker build -t unreleased_rocm:${{inputs.unreleased_rocm}} .
+      
+      - name: Build upon ROCm base
+        env:
+          ROCM_RELEASE: ${{ inputs.rocm_release }}
+          ROCM_BASE: ${{ env.DOCKERBASE }}
+          DOCKERIMAGE: unreleased_rocm_migraphx:${{ inputs.unreleased_rocm }}
+          BUILD_NAVI: 0
+          TOKEN: ${{ secrets.gh_token }}
+        run: |
+          cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
+          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.repository }} ${{ env.BRANCH_NAME }}
+
+      - name: Docker build
+        run: >
+          cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }} && docker build --no-cache
+          --build-arg BRANCH=${{ env.BRANCH_NAME }} 
+          --build-arg DOCKERBASE=unreleased_rocm_migraphx:${{ inputs.unreleased_rocm }}
+          --build-arg MIOPENTUNE=${{ env.MIOPENTUNE }}
+          --build-arg benchmark_utils_repo=${{ inputs.benchmark_utils_repo }}
+          -t "migraphx-rocm:${{ inputs.unreleased_rocm }}-${{ steps.git_sha.outputs.git_sha }}" 
+          -f dockerfiles/Daily.Dockerfile .
+
+      - name: Run performance tests
+        run: >
+          docker run -e TZ=America/Chicago
+          --name perf-test-$GITHUB_RUN_ID
+          --cpuset-cpus=${{ env.CPU }}
+          -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
+          -e TARGET=gpu
+          -e PYTHONPATH=/src/AMDMIGraphX/build/lib
+          -e USE_RBUILD=1
+          -e TEST_RESULTDIR=/data/test-results/unreleased-rocm
+          -e TEST_RESULTS_PATH=/data/test-results/unreleased-rocm
+          -e TARGETOPT="--gpu --exhaustive-tune"
+          --device=/dev/dri
+          --device=/dev/kfd
+          --network=host
+          --group-add=video
+          -v /usr/share/migraphx/saved-models:/saved-models:ro
+          -v /usr/share/migraphx/new-saved-models:/new-saved-models:ro
+          -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
+          -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results/unreleased-rocm
+          --workdir /migraphx/sh
+          migraphx-rocm:${{ inputs.unreleased_rocm }}-${{ steps.git_sha.outputs.git_sha }} /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
+
+      - name: Checkout report's repo
+        uses: actions/checkout@v4.1.1
+        with:
+          repository: ${{ inputs.performance_reports_repo }}
+          path: ${{ env.REPORTS_DIR }}
+          token: ${{ secrets.gh_token }}
+      
+      - name: Copy performance results to repo - unreleased_ROCm
+        run: |
+          mkdir -p $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/unreleased_ROCm/${{inputs.unreleased_rocm}}/${{ steps.git_sha.outputs.git_sha }}
+          cp -r ${{ env.TEST_RESULTS_PATH }}/perf-*/. $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/performance_results/unreleased_ROCm/${{inputs.unreleased_rocm}}/${{ steps.git_sha.outputs.git_sha }}
+  
+      - name: Push results to repo
+        continue-on-error: true
+        run: |
+          cd $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
+          git add .
+          git config --local user.email github-actions@github.com
+          git config --local user.name github-actions
+          git commit -m "Performance results run https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" -a
+          git push
+
+      - name: Execute comment script
+        id: auto_comment
+        run: |
+          if [ ${{ inputs.flags }} == "-r" ]; then
+            flagoptions="${{ inputs.flags }} $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/"
+          else
+            flagoptions="${{ inputs.flags }}"
+          fi 
+          python3 $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/unreleased_rocm_comment.py -t ${TEST_RESULTS_PATH} -n ${{ inputs.result_number }} $flagoptions -v ${{ inputs.unreleased_rocm }}
+          mv $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/temp.md $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts/performance.md
+
+      - name: Get latest accuracy results
+        id: accuracy
+        run: |
+          cd ${{ env.TEST_RESULTS_PATH }}
+          ACCURACY=$(ls -dt accuracy* | head -1)
+          echo "last_test=$ACCURACY" >> $GITHUB_OUTPUT
+          sudo mv ${{ env.TEST_RESULTS_PATH }}/$ACCURACY/results.md ${{ env.TEST_RESULTS_PATH }}/$ACCURACY/accuracy.md
+
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.mail_user }}
+          password: ${{ secrets.mail_pass }}
+          subject: ${{ env.MAIL_SUBJECT }}
+          to: ${{ env.MAIL_TO }}
+          from: ${{ env.MAIL_FROM }}
+          secure: true
+          body: ${{ env.MAIL_BODY }}
+          cc: ${{ env.MAIL_CC }}
+          ignore_cert: true
+          attachments: ${{ github.workspace }}/${{ env.UTILS_DIR }}/scripts/performance.md,${{ env.TEST_RESULTS_PATH }}/${{ steps.accuracy.outputs.last_test }}/accuracy.md
+          priority: normal
+
+      - name: Reset GPU parameters to default
+        run: sudo rocm-smi --device ${{ env.GPU }} --resetclocks
+        
