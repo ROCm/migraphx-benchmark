@@ -1,11 +1,11 @@
-name: MIGraphX Performance Tests
+name: Specifed Release ROCm MIGraphX Performance Tests
 
 on:
   workflow_call:
     inputs:
       unreleased_rocm:
         type: string
-        description: Unreleased ROCm version
+        description: Specified ROCm Release
         required: true
       branch_name:
         type: string
@@ -59,7 +59,7 @@ env:
   MAIL_CC: igor.mirosavljevic@htecgroup.com
   MAIL_FROM: GH Actions
   MAIL_SUBJECT: Unreleased ROCm ${{ inputs.unreleased_rocm }} test
-  MAIL_BODY: Performance test with unreleased ROCm for run https://github.com/${{ github.repository }}/actions/runs/${{github.run_id }}
+  MAIL_BODY: Performance test with specified ROCm release for run https://github.com/${{ github.repository }}/actions/runs/${{github.run_id }}
   BRANCH_NAME: develop
   REPORTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/reports
   TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results/unreleased_ROCm
@@ -69,7 +69,7 @@ env:
 
 jobs:
   performance_test:
-    name: Unreleased ROCm - MIGraphX performance
+    name: Specified ROCm Release - MIGraphX performance
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip bot checks') }}
     runs-on: [self-hosted,performance]
     timeout-minutes: 3600
