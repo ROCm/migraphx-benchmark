@@ -97,11 +97,11 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "GPUD55F_1")
+            "GPU942F_1")
               GPU=0
               CPU="0-63"
               ;;
-            "GPUD55F_2")
+            "GPU942F_2")
               GPU=4
               CPU="64-127"
               ;;
@@ -123,7 +123,7 @@ jobs:
       - name: Update Mailing list based on organization
         if: ${{ inputs.organization == 'HTEC' }}
         run: |
-          echo "MAIL_TO=$(echo "igor.mirosavljevic@htecgroup.com,djordje.petrovic@htecgroup.com")" >> $GITHUB_ENV
+          echo "MAIL_TO=$(echo "igor.mirosavljevic@htecgroup.com")" >> $GITHUB_ENV
           echo "MAIL_CC= " >> $GITHUB_ENV
 
       - name: Update PR env
@@ -134,6 +134,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4.1.1
+        with:
+          fetch-depth: 0
 
       - name: Checkout utils
         uses: actions/checkout@v4.1.1
@@ -146,6 +148,7 @@ jobs:
         id: git_sha
         run: |
           cd $GITHUB_WORKSPACE
+          git checkout $BRANCH_NAME
           SHA=$(git log | head -5 | grep Merge | awk '{print $2}' | cut -c 1-6)
           if [ -z "$SHA" ]; then
             SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
@@ -251,6 +254,7 @@ jobs:
           header: performance
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ github.workspace }}/${{ env.UTILS_DIR }}/scripts/temp.md
+          recreate: true
 
       - name: Get latest accuracy results
         id: accuracy
@@ -267,6 +271,7 @@ jobs:
           header: accuracy
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ env.TEST_RESULTS_PATH }}/${{ steps.accuracy.outputs.last_test }}/results.md
+          recreate: true
 
       - name: Get latest report
         id: last_report
