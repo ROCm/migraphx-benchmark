@@ -97,11 +97,11 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "GPUD55F_1")
+            "GPU942F_1")
               GPU=0
               CPU="0-63"
               ;;
-            "GPUD55F_2")
+            "GPU942F_2")
               GPU=4
               CPU="64-127"
               ;;
@@ -123,7 +123,7 @@ jobs:
       - name: Update Mailing list based on organization
         if: ${{ inputs.organization == 'HTEC' }}
         run: |
-          echo "MAIL_TO=$(echo "igor.mirosavljevic@htecgroup.com,djordje.petrovic@htecgroup.com")" >> $GITHUB_ENV
+          echo "MAIL_TO=$(echo "igor.mirosavljevic@htecgroup.com")" >> $GITHUB_ENV
           echo "MAIL_CC= " >> $GITHUB_ENV
 
       - name: Update PR env
@@ -134,6 +134,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4.1.1
+        with:
+          fetch-depth: 0
 
       - name: Checkout utils
         uses: actions/checkout@v4.1.1
@@ -142,15 +144,52 @@ jobs:
           path: ${{ env.UTILS_DIR }}
           token: ${{ secrets.gh_token }}
 
+      - name: Calculate HASH
+        id: hash
+        run: |
+          cd $GITHUB_WORKSPACE
+          md5sum Dockerfile >> hashes.txt
+          md5sum requirements.txt >> hashes.txt
+          md5sum dev-requirements.txt >> hashes.txt
+          rocm_hash=$(md5sum hashes.txt | awk '{print $1}' | head -c 6)
+          rm hashes.txt
+          echo "HASH=$rocm_hash" >> $GITHUB_ENV
+      
       - name: Get git SHA
         id: git_sha
         run: |
           cd $GITHUB_WORKSPACE
+          git checkout $BRANCH_NAME
           SHA=$(git log | head -5 | grep Merge | awk '{print $2}' | cut -c 1-6)
           if [ -z "$SHA" ]; then
             SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
           fi
           echo "git_sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Check image hash
+        id: check_hash
+        run: |
+          echo ${{ env.HASH }}
+          echo "DOCKERBASE=rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }}" >> $GITHUB_ENV
+          if [ -z "$(docker images -q rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }})" ]; then
+            echo "Hashes not match, base ROCm image will be rebuilt"
+            echo "image=true" >> $GITHUB_ENV
+          else 
+            echo "Hashes match, continue with existing image"
+            echo "image=false" >> $GITHUB_ENV
+          fi
+
+      - name: Rebuild ROCm base
+        if: ${{ env.image == 'true' }}
+        env:
+          ROCM_RELEASE: ${{ inputs.rocm_release }}
+          ROCM_BASE: ${{ env.ROCM_BASE }}
+          DOCKERIMAGE: rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }}
+          BUILD_NAVI: 0
+          TOKEN: ${{ secrets.gh_token }}
+        run: |
+          cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
+          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.repository }} ${{ env.BRANCH_NAME }}
 
       - name: Docker build
         if: ${{ github.event.action != 'closed' }}
@@ -166,10 +205,11 @@ jobs:
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
-          docker run -e TZ=America/Chicago
+          docker run
           --name perf-test-$GITHUB_RUN_ID
           --cpuset-cpus=${{ env.CPU }}
           -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
+          -e TZ=America/Chicago
           -e TARGET=gpu
           -e PYTHONPATH=/src/AMDMIGraphX/build/lib
           -e USE_RBUILD=1
@@ -251,6 +291,7 @@ jobs:
           header: performance
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ github.workspace }}/${{ env.UTILS_DIR }}/scripts/temp.md
+          recreate: true
 
       - name: Get latest accuracy results
         id: accuracy
@@ -267,6 +308,7 @@ jobs:
           header: accuracy
           GITHUB_TOKEN: ${{ secrets.gh_token }}
           path: ${{ env.TEST_RESULTS_PATH }}/${{ steps.accuracy.outputs.last_test }}/results.md
+          recreate: true
 
       - name: Get latest report
         id: last_report
