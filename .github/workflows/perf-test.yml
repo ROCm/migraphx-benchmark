@@ -361,7 +361,5 @@ jobs:
         
       - name: Clean closed PR data
         if: ${{ github.event.action == 'closed' }}
-        run: >
-          docker run
-          -v ${{ env.MIGRAPHX_PATH }}:/data/migraphx/${{ inputs.organization }}
-          rocm-migraphx:${{ inputs.rocm_release }} bash -c "rm -rf ${{ env.TEST_RESULTS_PATH }}"
+        run: |
+          sudo rm -rf ${{ env.TEST_RESULTS_PATH }}
