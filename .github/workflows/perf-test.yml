@@ -116,10 +116,13 @@ jobs:
           echo "CPU=$CPU" >> $GITHUB_ENV
       
       - name: Set GPU parameters
+        if: ${{ github.event.action != 'closed' }}
         run: sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
       
       - name: Install python libraries
-        run: pip install numpy pandas openpyxl
+        if: ${{ github.event.action != 'closed' }}
+        run: pip install tabulate==0.8.9 pandas==1.4.2 numpy==1.22.3 openpyxl==3.1.2
+
       - name: Update Mailing list based on organization
         if: ${{ inputs.organization == 'HTEC' }}
         run: |
@@ -145,6 +148,7 @@ jobs:
           token: ${{ secrets.gh_token }}
 
       - name: Calculate HASH
+        if: ${{ github.event.action != 'closed' }}
         id: hash
         run: |
           cd $GITHUB_WORKSPACE
@@ -157,6 +161,7 @@ jobs:
           echo "HASH=$rocm_hash" >> $GITHUB_ENV
       
       - name: Get git SHA
+        if: ${{ github.event.action != 'closed' }}
         id: git_sha
         run: |
           cd $GITHUB_WORKSPACE
@@ -235,6 +240,7 @@ jobs:
           docker image prune -f  || true
 
       - name: Checkout report's repo
+        if: ${{ github.event.action != 'closed' }}
         uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.performance_reports_repo }}
@@ -266,6 +272,7 @@ jobs:
         
       - name: Push results to repo
         continue-on-error: true
+        if: ${{ github.event.action != 'closed' }}
         run: |
           cd $GITHUB_WORKSPACE/${{ env.REPORTS_DIR }}/
           git add .
@@ -358,6 +365,7 @@ jobs:
           git push
 
       - name: Reset GPU parameters to default
+        if: ${{ github.event.action != 'closed' }}
         run: sudo rocm-smi --device ${{ env.GPU }} --resetclocks
         
       - name: Clean closed PR data
