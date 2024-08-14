@@ -148,6 +148,7 @@ jobs:
         id: hash
         run: |
           cd $GITHUB_WORKSPACE
+          git checkout $BRANCH_NAME
           md5sum Dockerfile >> hashes.txt
           md5sum requirements.txt >> hashes.txt
           md5sum dev-requirements.txt >> hashes.txt
