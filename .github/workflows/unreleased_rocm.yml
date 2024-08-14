@@ -101,11 +101,11 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "GPUD55F_1")
+            "GPU942F_1")
               GPU=0
               CPU="0-63"
               ;;
-            "GPUD55F_2")
+            "GPU942F_2")
               GPU=4
               CPU="64-127"
               ;;
@@ -123,7 +123,7 @@ jobs:
         run: sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
       
       - name: Install python libraries
-        run: pip install numpy pandas openpyxl
+        run: pip install tabulate==0.8.9 pandas==1.4.2 numpy==1.22.3 openpyxl==3.1.2
 
       - name: Update Mailing list based on organization
         if: ${{ inputs.organization == 'HTEC' }}
