@@ -153,11 +153,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           git checkout $BRANCH_NAME
-          md5sum Dockerfile >> hashes.txt
-          md5sum requirements.txt >> hashes.txt
-          md5sum dev-requirements.txt >> hashes.txt
-          rocm_hash=$(md5sum hashes.txt | awk '{print $1}' | head -c 6)
-          rm hashes.txt
+          rocm_hash=$(echo ${{hashFiles('**/Dockerfile', '**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}} | cut -c 1-6)
           echo "HASH=$rocm_hash" >> $GITHUB_ENV
       
       - name: Get git SHA
