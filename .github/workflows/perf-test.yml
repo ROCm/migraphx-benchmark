@@ -173,6 +173,7 @@ jobs:
           echo "git_sha=$SHA" >> $GITHUB_OUTPUT
 
       - name: Check image hash
+        if: ${{ github.event.action != 'closed' }}
         id: check_hash
         run: |
           echo ${{ env.HASH }}
