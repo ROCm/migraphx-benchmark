@@ -192,7 +192,7 @@ jobs:
           TOKEN: ${{ secrets.gh_token }}
         run: |
           cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
-          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.repository }} ${{ env.BRANCH_NAME }}
+          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.event.pull_request.head.repo.full_name }} ${{ env.BRANCH_NAME }}
 
       - name: Docker build
         if: ${{ github.event.action != 'closed' }}
