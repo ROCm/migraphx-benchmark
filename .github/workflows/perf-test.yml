@@ -132,7 +132,7 @@ jobs:
       - name: Update PR env
         if: ${{ github.event_name == 'pull_request_target'}}
         run: |
-          sanitized_branch_name=$(echo "${{ github.head_ref }}" | sed 's/[^a-zA-Z0-9_]/-/g')
+          sanitized_branch_name=$(echo "${{ github.head_ref }}" | sed 's/[^a-zA-Z0-9._\/]/-/g')
           echo "BRANCH_NAME=$sanitized_branch_name" >> $GITHUB_ENV
           echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
 
@@ -140,6 +140,8 @@ jobs:
         uses: actions/checkout@v4.1.1
         with:
           fetch-depth: 0
+          ref: ${{ env.BRANCH_NAME }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Checkout utils
         uses: actions/checkout@v4.1.1
@@ -190,7 +192,7 @@ jobs:
           TOKEN: ${{ secrets.gh_token }}
         run: |
           cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
-          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.repository }} ${{ env.BRANCH_NAME }}
+          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.event.pull_request.head.repo.full_name }} ${{ env.BRANCH_NAME }}
 
       - name: Docker build
         if: ${{ github.event.action != 'closed' }}
