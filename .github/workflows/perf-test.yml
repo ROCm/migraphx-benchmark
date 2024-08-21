@@ -137,6 +137,7 @@ jobs:
           echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
 
       - name: Checkout code
+        if: ${{ github.event.action != 'closed' }}
         uses: actions/checkout@v4.1.1
         with:
           fetch-depth: 0
@@ -144,6 +145,7 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Checkout utils
+        if: ${{ github.event.action != 'closed' }}
         uses: actions/checkout@v4.1.1
         with:
           repository: ${{ inputs.benchmark_utils_repo }}
