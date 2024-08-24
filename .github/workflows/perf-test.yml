@@ -237,7 +237,7 @@ jobs:
             docker rmi -f $(docker images --filter=reference="migraphx-rocm:${{ inputs.rocm_release }}-*" | awk 'NR>1 {print $3}')  || true
           fi
           if [[ $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '1 week ago' +%Y-%m-%d)" '$2 < date {print $1}') ]]; then
-            docker rmi -f $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '2 weeks ago' +%Y-%m-%d)" '$2 < date {print $1}')
+            docker rmi -f $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '2 weeks ago' +%Y-%m-%d)" '$2 < date {print $1}') || true
           fi
           docker image prune -f  || true
 
