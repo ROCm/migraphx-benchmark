@@ -138,7 +138,7 @@ jobs:
 
       - name: Checkout code
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/checkout@v4.3.2
+        uses: actions/checkout@v6.0.1
         with:
           fetch-depth: 0
           ref: ${{ env.BRANCH_NAME }}
@@ -146,7 +146,7 @@ jobs:
 
       - name: Checkout utils
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/checkout@v4.3.2
+        uses: actions/checkout@v6.0.1
         with:
           repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
@@ -243,7 +243,7 @@ jobs:
 
       - name: Checkout report's repo
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/checkout@v4.3.2
+        uses: actions/checkout@v6.0.1
         with:
           repository: ${{ inputs.performance_reports_repo }}
           path: ${{ env.REPORTS_DIR }}
@@ -352,7 +352,7 @@ jobs:
 
       - name : Checkout for backup
         if: ${{ github.event_name == 'schedule' }}
-        uses: actions/checkout@v4.3.2
+        uses: actions/checkout@v6.0.1
         with:
           repository: ${{ inputs.performance_backup_repo }}
           path: ${{ env.PERFORMANCE_DIR }}
