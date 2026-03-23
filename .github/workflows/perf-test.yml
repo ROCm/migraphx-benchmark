@@ -97,13 +97,13 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "GPU942F_1")
+            "c13-38_0")
               GPU=0
-              CPU="0-63"
+              CPU="0-31"
               ;;
-            "GPU942F_2")
+            "c13-38_4")
               GPU=4
-              CPU="64-127"
+              CPU="32-63"
               ;;
             *)
               echo "Unknown RUNNER_ID: $RUNNER_NAME"
