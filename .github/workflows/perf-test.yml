@@ -52,7 +52,7 @@ env:
 jobs:
   performance_test:
     name: MIGraphX Performance
-    runs-on: ubuntu-latest # [self-hosted, performance]
+    runs-on: [self-hosted, "linux-migraphx-mi250-1"]
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
@@ -88,6 +88,10 @@ jobs:
             "c13-38_4")
               GPU=4
               CPU="32-63"
+              ;;
+            "linux-migraphx-mi250-1")
+              GPU=0
+              CPU="0-31"
               ;;
             *)
               echo "Unknown RUNNER_ID: $RUNNER_NAME"
