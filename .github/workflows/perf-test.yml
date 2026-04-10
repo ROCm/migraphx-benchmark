@@ -139,10 +139,9 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         uses: actions/checkout@v6
         with:
-          #repository: ${{ inputs.benchmark_utils_repo }}
-          repository: causten/migraphx-benchmark-utils
+          repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
-          token: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
+          ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
       - name: Calculate HASH
         if: ${{ github.event.action != 'closed' }}
