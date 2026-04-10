@@ -64,7 +64,7 @@ env:
 jobs:
   performance_test:
     name: MIGraphX Performance
-    runs-on: [self-hosted, "${{ inputs.runs_on }}"]
+    runs-on: ["${{ inputs.runs_on }}"]
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
