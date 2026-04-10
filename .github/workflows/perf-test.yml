@@ -35,6 +35,18 @@ on:
         type: string
         description: Repository for backup
         required: true
+      model_path:
+        type: string
+        description: Host path to NFS-backed models (ARC runner mount)
+        required: false
+      perf_workspace:
+        type: string
+        description: Writable NFS-backed workspace for reports/scratch (ARC runner mount)
+        required: false
+      runs_on:
+        type: string
+        description: Self-hosted runner label (ARC scale set linux-migraphx-mi250-1)
+        required: false
     secrets:
       BENCHMARK_UTILS_READ_TOKEN:
         description: Token with read access to benchmark utils repo
@@ -46,13 +58,13 @@ env:
   MIOPENTUNE: miopen-dbs/rocm${{ inputs.rocm_release }}
   PR_ID: ${{ github.event.number }}
   BRANCH_NAME: develop
-  TEST_RESULTS_PATH: /usr/share/migraphx/${{ inputs.organization }}/test-results
-  MIGRAPHX_PATH: /usr/share/migraphx/${{ inputs.organization }}
+  TEST_RESULTS_PATH: ${{ inputs.perf_workspace }}/${{ inputs.organization }}/test-results
+  MIGRAPHX_PATH: ${{ inputs.perf_workspace }}/migraphx/${{ inputs.organization }}
 
 jobs:
   performance_test:
     name: MIGraphX Performance
-    runs-on: [self-hosted, "linux-migraphx-mi250-1"]
+    runs-on: [self-hosted, "${{ inputs.runs_on }}"]
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
@@ -201,7 +213,7 @@ jobs:
           --device=/dev/kfd
           --network=host
           --group-add=video
-          -v /usr/share/migraphx/models:/models:ro
+          -v ${{ inputs.models_path }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           --workdir /migraphx/sh
