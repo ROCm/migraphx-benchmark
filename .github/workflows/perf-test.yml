@@ -137,9 +137,10 @@ jobs:
 
       - name: Checkout utils
         if: ${{ github.event.action != 'closed' }}
-        uses: actions/checkout@v4.3.1
+        uses: actions/checkout@v6
         with:
-          repository: ${{ inputs.benchmark_utils_repo }}
+          #repository: ${{ inputs.benchmark_utils_repo }}
+          repository: causten/migraphx-benchmark-utils
           path: ${{ env.UTILS_DIR }}
           token: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
