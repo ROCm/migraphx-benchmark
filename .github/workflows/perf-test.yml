@@ -101,7 +101,7 @@ jobs:
               GPU=4
               CPU="32-63"
               ;;
-            "linux-migraphx-mi250-1")
+            "${{ inputs.runs_on }}"* | "linux-migraphx-mi250-1"*)
               GPU=0
               CPU="0-31"
               ;;
