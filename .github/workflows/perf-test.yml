@@ -153,6 +153,12 @@ jobs:
           find /mnt/migraphx-perf-work -type d | xargs ls -la ||true
           mount ||true
 
+      - name: Download Resnet50
+         if: ${{ github.event.action != 'closed' }}
+         run: |
+           chmod 777 ${{ env.TEST_RESULTS_PATH }}
+           wget -P ${{ env.TEST_RESULTS_PATH }}  https://zenodo.org/record/4735647/files/resnet50_v1.onnx 
+
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
@@ -168,12 +174,12 @@ jobs:
           --device=/dev/kfd
           --network=host
           --group-add=video
-          -v ${{ inputs.model_path }}:/models:ro
+          -v ${{ env.TEST_RESULTS_PATH }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && SAVED_MODELS=${{ env.TEST_RESULTS_PATH }} DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} && chmod 777 ${{ env.TEST_RESULTS_PATH }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
