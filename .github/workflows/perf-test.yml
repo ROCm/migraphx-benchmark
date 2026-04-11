@@ -148,8 +148,8 @@ jobs:
         run: |
           ls -la  ${{ inputs.model_path }}
           echo "model_path=${{ inputs.model_path }}" >> $GITHUB_ENV
-          ls -la env.TEST_RESULTS_PATH
-          echo "results_path=$(echo "env.TEST_RESULTS_PATH")" >> $GITHUB_ENV
+          ls -la /mnt/migraphx-perf-work
+          echo "results_path=${{ env.TEST_RESULTS_PATH }}<<" >> $GITHUB_ENV ||true
 
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
