@@ -156,7 +156,7 @@ jobs:
       - name: Download Resnet50
         if: ${{ github.event.action != 'closed' }}
         run: |
-          chmod 777 ${{ env.TEST_RESULTS_PATH }}
+          ls -la ${{ env.TEST_RESULTS_PATH }}
           wget -P ${{ env.TEST_RESULTS_PATH }}  https://zenodo.org/record/4735647/files/resnet50_v1.onnx 
 
       - name: Run performance tests
