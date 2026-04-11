@@ -173,7 +173,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && SAVED_MODELS=$GITHUB_WORKSPACE DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} && chmod 777 ${{ env.TEST_RESULTS_PATH }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && SAVED_MODELS=${{ env.TEST_RESULTS_PATH }} DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} && chmod 777 ${{ env.TEST_RESULTS_PATH }} "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
