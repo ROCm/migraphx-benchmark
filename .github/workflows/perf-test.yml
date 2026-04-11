@@ -143,6 +143,13 @@ jobs:
           path: ${{ env.UTILS_DIR }}
           ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
+      - name: Little debug
+          run: |
+              ls -la  ${{ inputs.model_path }}
+              echo "model_path=${{ inputs.model_path }}" >> $GITHUB_ENV
+              ls -la env.TEST_RESULTS_PATH
+              echo "results_path=$(echo "env.TEST_RESULTS_PATH")" >> $GITHUB_ENV
+
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
