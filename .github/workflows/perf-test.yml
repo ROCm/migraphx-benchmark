@@ -157,7 +157,7 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run: |
           ls -la ${{ env.TEST_RESULTS_PATH }}
-          wget -P ${{ env.TEST_RESULTS_PATH }}  https://zenodo.org/record/4735647/files/resnet50_v1.onnx 
+          wget -P $GITHUB_WORKSPACE/  https://zenodo.org/record/4735647/files/resnet50_v1.onnx 
 
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
@@ -174,7 +174,7 @@ jobs:
           --device=/dev/kfd
           --network=host
           --group-add=video
-          -v ${{ env.TEST_RESULTS_PATH }}:/models:ro
+          -v $GITHUB_WORKSPACE:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
