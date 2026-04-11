@@ -143,61 +143,6 @@ jobs:
           path: ${{ env.UTILS_DIR }}
           ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
-      - name: Calculate HASH
-        if: ${{ github.event.action != 'closed' }}
-        id: hash
-        run: |
-          cd $GITHUB_WORKSPACE
-          git checkout $BRANCH_NAME
-          rocm_hash=$(echo ${{hashFiles('**/Dockerfile', '**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}} | cut -c 1-6)
-          echo "HASH=$rocm_hash" >> $GITHUB_ENV
-      
-      - name: Get git SHA
-        if: ${{ github.event.action != 'closed' }}
-        id: git_sha
-        run: |
-          cd $GITHUB_WORKSPACE
-          git checkout $BRANCH_NAME
-          SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
-          echo "git_sha=$SHA" >> $GITHUB_OUTPUT
-
-      - name: Check image hash
-        if: ${{ github.event.action != 'closed' }}
-        id: check_hash
-        run: |
-          echo ${{ env.HASH }}
-          echo "DOCKERBASE=rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }}" >> $GITHUB_ENV
-          if [ -z "$(docker images -q rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }})" ]; then
-            echo "Hashes not match, base ROCm image will be rebuilt"
-            echo "image=true" >> $GITHUB_ENV
-          else 
-            echo "Hashes match, continue with existing image"
-            echo "image=false" >> $GITHUB_ENV
-          fi
-
-      - name: Rebuild ROCm base
-        if: ${{ env.image == 'true' }}
-        env:
-          ROCM_RELEASE: ${{ inputs.rocm_release }}
-          ROCM_BASE: ${{ env.ROCM_BASE }}
-          DOCKERIMAGE: rocm-migraphx:${{ inputs.rocm_release }}-${{ env.HASH }}
-          BUILD_NAVI: 0
-          TOKEN: ${{ secrets.gh_token }}
-        run: |
-          cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts
-          ./build_migraphx_docker.sh ${{ inputs.benchmark_utils_repo }} ${{ github.event.pull_request.head.repo.full_name }} ${{ env.BRANCH_NAME }}
-
-      - name: Docker build
-        if: ${{ github.event.action != 'closed' }}
-        run: >
-          cd $GITHUB_WORKSPACE/${{ env.UTILS_DIR }} && docker build --no-cache
-          --build-arg BRANCH=${{ env.BRANCH_NAME }} 
-          --build-arg DOCKERBASE=${{ env.DOCKERBASE }}
-          --build-arg MIOPENTUNE=${{ env.MIOPENTUNE }}
-          --build-arg benchmark_utils_repo=${{ inputs.benchmark_utils_repo }}
-          -t "migraphx-rocm:${{ inputs.rocm_release }}-${{ steps.git_sha.outputs.git_sha }}" 
-          -f dockerfiles/Daily.Dockerfile .
-
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
@@ -216,8 +161,9 @@ jobs:
           -v ${{ inputs.model_path }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
+          -v $GITHUB_WORKSPACE/AMDMIGraphX:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          migraphx-rocm:${{ inputs.rocm_release }}-${{ steps.git_sha.outputs.git_sha }} /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
