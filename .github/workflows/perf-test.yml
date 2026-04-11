@@ -143,10 +143,6 @@ jobs:
           path: ${{ env.UTILS_DIR }}
           ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
-      - name: Little Debug
-        run: |
-          ls -l $GITHUB_WORKSPACE
-
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
@@ -167,7 +163,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
