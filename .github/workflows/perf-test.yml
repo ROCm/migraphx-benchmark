@@ -90,15 +90,6 @@ jobs:
           | jq -s '.[2].id' || true)
           docker stop perf-test-$cancel_id || true
 
-      - name: Get git SHA
-        if: ${{ github.event.action != 'closed' }}
-        id: git_sha
-        run: |
-          cd $GITHUB_WORKSPACE
-          git checkout $BRANCH_NAME
-          SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
-          echo "git_sha=$SHA" >> $GITHUB_OUTPUT
-      
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
@@ -152,6 +143,15 @@ jobs:
           path: ${{ env.UTILS_DIR }}
           ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
 
+      - name: Get git SHA
+        if: ${{ github.event.action != 'closed' }}
+        id: git_sha
+        run: |
+          cd $GITHUB_WORKSPACE
+          git checkout $BRANCH_NAME
+          SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
+          echo "git_sha=$SHA" >> $GITHUB_OUTPUT
+      
       - name: Little debug
         if: ${{ github.event.action != 'closed' }}
         run: |
