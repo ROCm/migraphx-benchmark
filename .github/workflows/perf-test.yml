@@ -146,11 +146,8 @@ jobs:
       - name: Little debug
         if: ${{ github.event.action != 'closed' }}
         run: |
-          ls -la  ${{ inputs.model_path }}
-          echo "model_path=${{ inputs.model_path }}" >> $GITHUB_ENV
-          ls -la /mnt/migraphx-perf-work
-          echo "results_path=${{ env.TEST_RESULTS_PATH }}<<" >> $GITHUB_ENV ||true
-          find /mnt/migraphx-perf-work -type d | xargs ls -la ||true
+          echo "results_path=${{ env.TEST_RESULTS_PATH }}" >> $GITHUB_ENV ||true
+          find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la ||true
           mount ||true
 
       - name: Download Resnet50
@@ -179,7 +176,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "ls -la /models && ls -la /src/AMDMIGraphX && ./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "chmod 777 /data/test-results && ./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
