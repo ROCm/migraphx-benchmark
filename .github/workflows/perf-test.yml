@@ -89,6 +89,15 @@ jobs:
           | jq -r '.workflow_runs[] | {id, run_number, conclusion} | select(.conclusion == "cancelled") | {id, run_number}' \
           | jq -s '.[2].id' || true)
           docker stop perf-test-$cancel_id || true
+
+      - name: Get git SHA
+        if: ${{ github.event.action != 'closed' }}
+        id: git_sha
+        run: |
+          cd $GITHUB_WORKSPACE
+          git checkout $BRANCH_NAME
+          SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
+          echo "git_sha=$SHA" >> $GITHUB_OUTPUT
       
       - name: Get runner ID
         run: |
