@@ -185,7 +185,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "chmod 777 /data/test-results && ./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "rm -rf /data/test-results/ && chmod 777 /data/test-results && ./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
