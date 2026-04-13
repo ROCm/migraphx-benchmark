@@ -151,13 +151,42 @@ jobs:
           git checkout $BRANCH_NAME
           SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
           echo "git_sha=$SHA" >> $GITHUB_OUTPUT
-      
+
+      - name: Make PR commit hash dir
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          echo "SHA=${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV ||true
+          mkdir ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}
+
       - name: Little debug
         if: ${{ github.event.action != 'closed' }}
         run: |
           echo "results_path=${{ env.TEST_RESULTS_PATH }}" >> $GITHUB_ENV ||true
           find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la ||true
           mount ||true
+          echo "SHA=${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV ||true
+
+      - name: Mini Cleanup
+        if: ${{ github.event.action != 'closed' }}
+        run: >
+          docker run
+          --name perf-test-$GITHUB_RUN_ID
+          --cpuset-cpus=${{ env.CPU }}
+          -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
+          -e TZ=America/Chicago
+          -e TARGET=gpu
+          -e PYTHONPATH=/src/AMDMIGraphX/build/lib
+          -e USE_RBUILD=1
+          --device=/dev/dri
+          --device=/dev/kfd
+          --network=host
+          --group-add=video
+          -v $GITHUB_WORKSPACE:/models:ro
+          -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
+          -v ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}:/data/test-results
+          -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
+          --workdir /migraphx/sh
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "rm -rf /data/test-results/*"
 
       - name: Download Resnet50
         if: ${{ github.event.action != 'closed' }}
@@ -185,7 +214,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "rm -rf /data/test-results/ && chmod 777 /data/test-results && ./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
