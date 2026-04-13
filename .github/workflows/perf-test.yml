@@ -38,15 +38,15 @@ on:
       model_path:
         type: string
         description: Host path to NFS-backed models (ARC runner mount)
-        required: false
+        required: true
       perf_workspace:
         type: string
         description: Writable NFS-backed workspace for reports/scratch (ARC runner mount)
-        required: false
+        required: true
       runs_on:
         type: string
         description: Self-hosted runner label (ARC scale set linux-migraphx-mi250-1)
-        required: false
+        required: true
     secrets:
       BENCHMARK_UTILS_READ_TOKEN:
         description: Token with read access to benchmark utils repo
@@ -93,14 +93,6 @@ jobs:
       - name: Get runner ID
         run: |
           case "$RUNNER_NAME" in
-            "c13-38_0")
-              GPU=0
-              CPU="0-31"
-              ;;
-            "c13-38_4")
-              GPU=4
-              CPU="32-63"
-              ;;
             "${{ inputs.runs_on }}"* | "linux-migraphx-mi250-1"*)
               GPU=0
               CPU="0-31"
@@ -149,49 +141,24 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE
           git checkout $BRANCH_NAME
-          SHA=$(git log | head -5 | grep -m 1 "^commit" | awk '{print $2}' | cut -c 1-6)
+          SHA=$(git rev-parse --short=6 HEAD)
           echo "git_sha=$SHA" >> $GITHUB_OUTPUT
 
       - name: Make PR commit hash dir
         if: ${{ github.event.action != 'closed' }}
         run: |
-          echo "SHA=${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV ||true
-          mkdir ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}
+          mkdir -p ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }} || true
+          echo "TEST_RESULTS_PATH=${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV
 
       - name: Little debug
         if: ${{ github.event.action != 'closed' }}
         run: |
-          echo "results_path=${{ env.TEST_RESULTS_PATH }}" >> $GITHUB_ENV ||true
+          echo "results_path=${{ env.TEST_RESULTS_PATH }}" >> $GITHUB_OUTPUT
           find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la ||true
-          mount ||true
-          echo "SHA=${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV ||true
-
-      - name: Mini Cleanup
-        if: ${{ github.event.action != 'closed' }}
-        run: >
-          docker run
-          --name perf-test-$GITHUB_RUN_ID
-          --cpuset-cpus=${{ env.CPU }}
-          -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
-          -e TZ=America/Chicago
-          -e TARGET=gpu
-          -e PYTHONPATH=/src/AMDMIGraphX/build/lib
-          -e USE_RBUILD=1
-          --device=/dev/dri
-          --device=/dev/kfd
-          --network=host
-          --group-add=video
-          -v $GITHUB_WORKSPACE:/models:ro
-          -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
-          -v ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}:/data/test-results
-          -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
-          --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "rm -rf /data/test-results/*"
 
       - name: Download Resnet50
         if: ${{ github.event.action != 'closed' }}
         run: |
-          ls -la ${{ env.TEST_RESULTS_PATH }}
           wget -P $GITHUB_WORKSPACE/  https://zenodo.org/record/4735647/files/resnet50_v1.onnx 
 
       - name: Run performance tests
@@ -211,10 +178,10 @@ jobs:
           --group-add=video
           -v $GITHUB_WORKSPACE:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
-          -v ${{ env.TEST_RESULTS_PATH }}:/data/test-results
+          -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }} "
+          rocm/migraphx-ci-ubuntu:latest /bin/bash -c "./install_migraphx.sh && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh 30m "
 
       - name: Save execution state & smuggle payload
         if: ${{ github.event.action != 'closed' }}
@@ -253,7 +220,7 @@ jobs:
             docker rmi -f $(docker images --filter=reference="migraphx-rocm:${{ inputs.rocm_release }}-*" | awk 'NR>1 {print $3}')  || true
           fi
           if [[ $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '1 week ago' +%Y-%m-%d)" '$2 < date {print $1}') ]]; then
-            docker rmi -f $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '2 weeks ago' +%Y-%m-%d)" '$2 < date {print $1}') || true
+            docker rmi -f $(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" | grep "rocm-migraphx:${{ inputs.rocm_release }}-"|awk -v date="$(date -d '1 weeks ago' +%Y-%m-%d)" '$2 < date {print $1}') || true
           fi
           docker image prune -f  || true
 
