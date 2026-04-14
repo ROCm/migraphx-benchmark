@@ -112,6 +112,17 @@ jobs:
         run:
           sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
 
+      - name: More cleanup
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          find ${{ inputs.perf_workspace }} -type d -maxdepth 3 |xargs ls -la  || true
+          docker run
+          --name perf-test-$GITHUB_RUN_ID
+          -v ${{ inputs.perf_workspace }}/:/data/test-results
+          -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
+          --workdir /migraphx/sh
+          ubuntu:24.04 -c "rm -rf /data/test-results/*"
+
       - name: Update PR env
         if: ${{ github.event_name == 'pull_request_target'}}
         run: |
