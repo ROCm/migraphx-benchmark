@@ -191,19 +191,21 @@ jobs:
           ORGANIZATION_INPUT: ${{ inputs.organization }}
         run: |
           if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
-            #docker run --rm -v ${{ env.TEST_RESULTS_PATH }}/:/data alpine sh -c "echo ${{ github.event.number }} > /data/pr_number.txt"
-            sudo echo "${{ github.event.number }}" > ${{ env.TEST_RESULTS_PATH }}/pr_number.txt
+            docker run --rm -v ${{ env.TEST_RESULTS_PATH }}/:/data alpine sh -c "echo ${{ github.event.number }} > /data/pr_number.txt"
+            #sudo echo "${{ github.event.number }}" > ${{ env.TEST_RESULTS_PATH }}/pr_number.txt
           fi
-
-          sudo echo "RESULT_NUMBER=${RESULT_NUMBER_INPUT:-10}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          sudo echo "FLAGS=${FLAGS_INPUT:--r}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          sudo echo "ORGANIZATION=${ORGANIZATION_INPUT:-AMD}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          sudo echo "GIT_SHA=${{ steps.git_sha.outputs.git_sha }}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+           
+          echo "RESULT_NUMBER=${RESULT_NUMBER_INPUT:-10}" >> env_vars.env
+          echo "FLAGS=${FLAGS_INPUT:--r}" >> env_vars.env
+          echo "ORGANIZATION=${ORGANIZATION_INPUT:-AMD}" >> env_vars.env
+          echo "GIT_SHA=${{ steps.git_sha.outputs.git_sha }}" env_vars.env
 
           if ls -dt ${{ env.TEST_RESULTS_PATH }}/accuracy* >/dev/null 2>&1; then
             ACCURACY_DIR=$(ls -dt ${{ env.TEST_RESULTS_PATH }}/accuracy* | head -1 | xargs basename)
-            sudo echo "ACCURACY_DIR=$ACCURACY_DIR" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+            sudo echo "ACCURACY_DIR=$ACCURACY_DIR" >> env_vars.env
           fi
+
+          docker run --rm -v ${{ env.TEST_RESULTS_PATH }}/:/data -v ./:/src alpine cp -r /src/env_vars.env /data
 
       - name: Upload Artifacts
         if: ${{ github.event.action != 'closed' }}
