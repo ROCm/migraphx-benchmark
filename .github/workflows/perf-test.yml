@@ -112,17 +112,6 @@ jobs:
         run:
           sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
 
-      - name: More cleanup
-        if: ${{ github.event.action != 'closed' }}
-        run: |
-          find ${{ inputs.perf_workspace }} -type d -maxdepth 3 |xargs ls -la  || true
-          docker run
-          --name perf-test-$GITHUB_RUN_ID
-          -v ${{ inputs.perf_workspace }}/:/data/test-results
-          -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
-          --workdir /migraphx/sh
-          ubuntu:24.04 -c "rm -rf /data/test-results/*"
-
       - name: Update PR env
         if: ${{ github.event_name == 'pull_request_target'}}
         run: |
@@ -201,19 +190,19 @@ jobs:
           RESULT_NUMBER_INPUT: ${{ inputs.result_number }}
           ORGANIZATION_INPUT: ${{ inputs.organization }}
         run: |
-          mkdir -p ${{ env.TEST_RESULTS_PATH }}
           if [[ "${{ github.event_name }}" == "pull_request_target" ]]; then
-            echo "${{ github.event.number }}" > ${{ env.TEST_RESULTS_PATH }}/pr_number.txt
+            #docker run --rm -v ${{ env.TEST_RESULTS_PATH }}/:/data alpine sh -c "echo ${{ github.event.number }} > /data/pr_number.txt"
+            sudo echo "${{ github.event.number }}" > ${{ env.TEST_RESULTS_PATH }}/pr_number.txt
           fi
 
-          echo "RESULT_NUMBER=${RESULT_NUMBER_INPUT:-10}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          echo "FLAGS=${FLAGS_INPUT:--r}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          echo "ORGANIZATION=${ORGANIZATION_INPUT:-AMD}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
-          echo "GIT_SHA=${{ steps.git_sha.outputs.git_sha }}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+          sudo echo "RESULT_NUMBER=${RESULT_NUMBER_INPUT:-10}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+          sudo echo "FLAGS=${FLAGS_INPUT:--r}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+          sudo echo "ORGANIZATION=${ORGANIZATION_INPUT:-AMD}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+          sudo echo "GIT_SHA=${{ steps.git_sha.outputs.git_sha }}" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
 
           if ls -dt ${{ env.TEST_RESULTS_PATH }}/accuracy* >/dev/null 2>&1; then
             ACCURACY_DIR=$(ls -dt ${{ env.TEST_RESULTS_PATH }}/accuracy* | head -1 | xargs basename)
-            echo "ACCURACY_DIR=$ACCURACY_DIR" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
+            sudo echo "ACCURACY_DIR=$ACCURACY_DIR" >> ${{ env.TEST_RESULTS_PATH }}/env_vars.env
           fi
 
       - name: Upload Artifacts
