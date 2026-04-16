@@ -168,6 +168,8 @@ jobs:
           echo "results_path=${{ env.TEST_RESULTS_PATH }}"
           find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la || true
           ls -l /model_path
+          df -h
+          ls $model_path
 
       - name: Download Resnet50
         if: ${{ github.event.action != 'closed' }}
