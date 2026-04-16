@@ -176,10 +176,6 @@ jobs:
           df -h || true
           mount || true
 
-      - name: Download Resnet50
-        if: ${{ github.event.action != 'closed' }}
-        run: |
-          wget -P $GITHUB_WORKSPACE/ https://zenodo.org/record/4735647/files/resnet50_v1.onnx
 
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
@@ -196,7 +192,7 @@ jobs:
           --device=/dev/kfd
           --network=host
           --group-add=video
-          -v $GITHUB_WORKSPACE:/models:ro
+          -v /migraphx-models:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
