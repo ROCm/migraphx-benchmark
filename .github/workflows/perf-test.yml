@@ -166,11 +166,12 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run: |
           echo "results_path=${{ env.TEST_RESULTS_PATH }}"
+          echo "model_path=$model_path" 
           find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la || true
           ls -l /migraphx-models ||true
           df -h || true
           ls $model_path || true
-          echo $model_path
+          mount || true
 
       - name: Download Resnet50
         if: ${{ github.event.action != 'closed' }}
