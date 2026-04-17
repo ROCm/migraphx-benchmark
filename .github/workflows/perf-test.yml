@@ -103,6 +103,7 @@ jobs:
             "${{ inputs.runs_on }}"* | "linux-migraphx-mi250-1"*)
               GPU=0
               CPU="0-31"
+              MODEL_PATH="/migraphx-models/models"
               ;;
             *)
               echo "Unknown RUNNER_ID: $RUNNER_NAME"
@@ -113,6 +114,7 @@ jobs:
           export CPU
           echo "GPU=$GPU" >> $GITHUB_ENV
           echo "CPU=$CPU" >> $GITHUB_ENV
+          echo "MODEL_PATH=$MODEL_PATH" >> $GITHUB_ENV
 
       - name: Set GPU parameters
         if: ${{ github.event.action != 'closed' }}
@@ -166,12 +168,12 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run: |
           echo "results_path=${{ env.TEST_RESULTS_PATH }}"
-          echo "model_path=$model_path" 
-          ls -l $model_path || true
+          echo "model_path=${{ env.MODEL_PATH }}" 
+          ls -l ${{ env.MODEL_PATH }} || true
           echo "/migraphx-models"
           ls -l /migraphx-models ||true
           echo "What is inside /migraphx-models"
-          find /migraphx-models -maxdepth 2 -type d | xargs ls -la || true
+          find /migraphx-models -maxdepth 1 -type d | xargs ls -la || true
           echo "What is inside ${{ env.TEST_RESULTS_PATH }}"
           find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la || true
           echo "Show results of df -h"
@@ -194,7 +196,7 @@ jobs:
           --device=/dev/kfd
           --network=host
           --group-add=video
-          -v /migraphx-models/models:/models:ro
+          -v ${{ env.MODEL_PATH }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
