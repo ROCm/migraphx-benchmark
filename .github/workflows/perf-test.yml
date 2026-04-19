@@ -65,8 +65,11 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       image_tag: ${{ steps.image_hash.outputs.imagetag }}
+      branch_name: ${{ steps.pr_env.outputs.branch_name }}
+      test_results_path: ${{ steps.pr_env.outputs.test_results_path }}
     steps:
       - name: Update PR env
+        id: pr_env
         if: ${{ github.event_name == 'pull_request_target' || github.event_name == 'schedule'}}
         env:
           HEAD_REF: ${{ github.head_ref }}
@@ -77,6 +80,9 @@ jobs:
           sanitized_branch_name=$(echo "$HEAD_REF" | sed 's/[^a-zA-Z0-9._\/]/-/g')
           echo "BRANCH_NAME=$sanitized_branch_name" >> $GITHUB_ENV
           echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
+
+          echo "branch_name=$sanitized_branch_name" >> $GITHUB_OUTPUT
+          echo "test_results_path=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_OUTPUT
 
       - name: Checkout code
         if: ${{ github.event.action != 'closed' }}
@@ -192,6 +198,12 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         run:
           sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
+
+      - name: Apply PR env from Build
+        if: ${{ needs.build_product.outputs.branch_name != '' }}
+        run: |
+          echo "BRANCH_NAME=${{ needs.build_product.outputs.branch_name }}" >> $GITHUB_ENV
+          echo "TEST_RESULTS_PATH=${{ needs.build_product.outputs.test_results_path }}" >> $GITHUB_ENV
 
       - name: Checkout code
         if: ${{ github.event.action != 'closed' }}
