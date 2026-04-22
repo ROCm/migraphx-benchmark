@@ -108,10 +108,10 @@ jobs:
       - name: Create Image Tag
         id: image_hash
         run: |
-          # NOTE: Changes to this line must also be reflected in ci.yaml to keep behavior consistent
+          # NOTE: Changes to this line must also be reflected in ROCm/AMDMIGraphX/.github/workflows/ci.yaml to keep behavior consistent
           echo "imagetag=hip-clang-${{hashFiles('**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}}" >> $GITHUB_OUTPUT
       
-      # This step polls DockerHub for the CI image built by the ci.yaml workflow (build_image job)
+      # This step polls DockerHub for the CI image built by the ROCm/AMDMIGraphX/.github/workflows/ci.yaml workflow (build_image job)
       - name: Wait for CI docker image
         if: ${{ github.event.action != 'closed' }}
         run: |
