@@ -108,23 +108,25 @@ jobs:
       - name: Create Image Tag
         id: image_hash
         run: |
+          # NOTE: Changes to this line must also be reflected in ci.yaml to keep behavior consistent
           echo "imagetag=hip-clang-${{hashFiles('**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}}" >> $GITHUB_OUTPUT
       
+      # This step polls DockerHub for the CI image built by the ci.yaml workflow (build_image job)
       - name: Wait for CI docker image
         if: ${{ github.event.action != 'closed' }}
         run: |
           TAG="${{ steps.image_hash.outputs.imagetag }}"
           echo "Polling DockerHub for rocm/migraphx-ci-ubuntu:$TAG"
-          for i in {1..40}; do
+          for i in {1..120}; do
             if docker manifest inspect rocm/migraphx-ci-ubuntu:$TAG > /dev/null 2>&1; then
               echo "Docker image is available."
               exit 0
             else
-              echo "Waiting 60 sec... Attempt $i/40"
+              echo "Waiting 60 sec... Attempt $i/120"
               sleep 60
             fi
           done
-          echo "TImeout, waiting for CI to build docker image."
+          echo "Timeout, waiting for CI to build docker image."
           exit 1
 
       - name: Build and Package
