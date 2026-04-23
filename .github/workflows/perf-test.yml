@@ -60,9 +60,89 @@ env:
   TEST_RESULTS_PATH: ${{ inputs.perf_workspace }}/${{ inputs.organization }}/test-results
 
 jobs:
-  performance_test:
+  build_product:
+    name: Build MIGraphX
+    runs-on: ubuntu-24.04
+    outputs:
+      image_tag: ${{ steps.image_hash.outputs.imagetag }}
+      branch_name: ${{ steps.pr_env.outputs.branch_name }}
+      test_results_path: ${{ steps.pr_env.outputs.test_results_path }}
+    steps:
+      - name: Update PR env
+        id: pr_env
+        if: ${{ github.event_name == 'pull_request_target' || github.event_name == 'schedule'}}
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ -z "$PR_ID" ]; then
+            PR_ID="develop"
+          fi
+          sanitized_branch_name=$(echo "$HEAD_REF" | sed 's/[^a-zA-Z0-9._\/]/-/g')
+          echo "BRANCH_NAME=$sanitized_branch_name" >> $GITHUB_ENV
+          echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
+
+          echo "branch_name=$sanitized_branch_name" >> $GITHUB_OUTPUT
+          echo "test_results_path=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        if: ${{ github.event.action != 'closed' }}
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ env.BRANCH_NAME }}
+          repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+
+      - name: Free space and setup swap
+        if: ${{ github.event.action != 'closed' }}
+        uses: jlumbroso/free-disk-space@main
+        continue-on-error: true
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
+          docker-images: true
+
+      - name: Create Image Tag
+        id: image_hash
+        run: |
+          # NOTE: Changes to this line must also be reflected in ROCm/AMDMIGraphX/.github/workflows/ci.yaml to keep behavior consistent
+          echo "imagetag=hip-clang-${{hashFiles('**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}}" >> $GITHUB_OUTPUT
+      
+      # This step polls DockerHub for the CI image built by the ROCm/AMDMIGraphX/.github/workflows/ci.yaml workflow (build_image job)
+      - name: Wait for CI docker image
+        if: ${{ github.event.action != 'closed' }}
+        run: |
+          TAG="${{ steps.image_hash.outputs.imagetag }}"
+          echo "Polling DockerHub for rocm/migraphx-ci-ubuntu:$TAG"
+          for i in {1..120}; do
+            if docker manifest inspect rocm/migraphx-ci-ubuntu:$TAG > /dev/null 2>&1; then
+              echo "Docker image is available."
+              exit 0
+            else
+              echo "Waiting 60 sec... Attempt $i/120"
+              sleep 60
+            fi
+          done
+          echo "Timeout, waiting for CI to build docker image."
+          exit 1
+
+      - name: Build and Package
+        run: |
+          docker run --rm -v $GITHUB_WORKSPACE:/data -w /data rocm/migraphx-ci-ubuntu:${{ steps.image_hash.outputs.imagetag }} /bin/bash -c "mkdir build && cd build && CXX=/opt/rocm/llvm/bin/clang++ CC=/opt/rocm/llvm/bin/clang cmake -DCMAKE_BUILD_TYPE=Release -DGPU_TARGETS=gfx90a -DMIGRAPHX_ENABLE_GPU=On .. && make package -j\$(nproc) "
+      
+      - name: Upload package
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: migraphx-deb
+          path: build/*.deb
+
+  test_product:
     name: MIGraphX Performance
     runs-on: ["${{ inputs.runs_on }}"]
+    needs: build_product
     outputs:
       git_sha: ${{ steps.git_sha.outputs.git_sha }}
     steps:
@@ -121,17 +201,11 @@ jobs:
         run:
           sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
 
-      - name: Update PR env
-        if: ${{ github.event_name == 'pull_request_target' || github.event_name == 'schedule'}}
-        env:
-          HEAD_REF: ${{ github.head_ref }}
+      - name: Apply PR env from Build
+        if: ${{ needs.build_product.outputs.branch_name != '' }}
         run: |
-          if [ -z "$PR_ID" ]; then
-            PR_ID="develop"
-          fi
-          sanitized_branch_name=$(echo "$HEAD_REF" | sed 's/[^a-zA-Z0-9._\/]/-/g')
-          echo "BRANCH_NAME=$sanitized_branch_name" >> $GITHUB_ENV
-          echo "TEST_RESULTS_PATH=$(echo "$TEST_RESULTS_PATH-$PR_ID")" >> $GITHUB_ENV
+          echo "BRANCH_NAME=${{ needs.build_product.outputs.branch_name }}" >> $GITHUB_ENV
+          echo "TEST_RESULTS_PATH=${{ needs.build_product.outputs.test_results_path }}" >> $GITHUB_ENV
 
       - name: Checkout code
         if: ${{ github.event.action != 'closed' }}
@@ -180,7 +254,13 @@ jobs:
           df -h || true
           mount || true
 
-
+      - name: Download MIGraphX Deb Artifact
+        if: ${{ github.event.action != 'closed' }}
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: migraphx-deb
+          path: ${{ github.workspace }}/deb-package
+          
       - name: Run performance tests
         if: ${{ github.event.action != 'closed' }}
         run: >
@@ -190,8 +270,6 @@ jobs:
           -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
           -e TZ=America/Chicago
           -e TARGET=gpu
-          -e PYTHONPATH=/src/AMDMIGraphX/build/lib
-          -e USE_RBUILD=1
           --device=/dev/dri
           --device=/dev/kfd
           --network=host
@@ -201,7 +279,7 @@ jobs:
           -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:7.1.1 /bin/bash -c "./build_migraphx.sh && ./performance_tests.sh ${{ inputs.model_timeout }}"
+          rocm/migraphx-ci-ubuntu:${{ needs.build_product.outputs.image_tag }} /bin/bash -c "apt-get update && apt-get install -y /src/AMDMIGraphX/deb-package/*.deb && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }}"
 
       - name: Save execution metadata
         if: ${{ github.event.action != 'closed' }}
