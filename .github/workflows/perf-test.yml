@@ -107,6 +107,7 @@ jobs:
 
       - name: Create Image Tag
         id: image_hash
+        if: ${{ github.event.action != 'closed' }}
         run: |
           # NOTE: Changes to this line must also be reflected in ROCm/AMDMIGraphX/.github/workflows/ci.yaml to keep behavior consistent
           echo "imagetag=hip-clang-${{hashFiles('**/hip-clang.docker', '**/*requirements.txt', '**/requirements-py.txt', '**/install_prereqs.sh', '**/rbuild.ini')}}" >> $GITHUB_OUTPUT
@@ -130,10 +131,12 @@ jobs:
           exit 1
 
       - name: Build and Package
+        if: ${{ github.event.action != 'closed' }}
         run: |
           docker run --rm -v $GITHUB_WORKSPACE:/data -w /data rocm/migraphx-ci-ubuntu:${{ steps.image_hash.outputs.imagetag }} /bin/bash -c "mkdir build && cd build && CXX=/opt/rocm/llvm/bin/clang++ CC=/opt/rocm/llvm/bin/clang cmake -DCMAKE_BUILD_TYPE=Release -DGPU_TARGETS=gfx90a -DMIGRAPHX_ENABLE_GPU=On .. && make package -j\$(nproc) "
       
       - name: Upload package
+        if: ${{ github.event.action != 'closed' }}
         uses: actions/upload-artifact@v7.0.1
         with:
           name: migraphx-deb
