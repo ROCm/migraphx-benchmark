@@ -283,8 +283,12 @@ jobs:
         if: ${{ github.event.action != 'closed' }}
         continue-on-error: true
         run: |
-          OUT=${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}/_env
+          OUT=${{ env.TEST_RESULTS_PATH }}/_env
           mkdir -p "$OUT"
+          {
+            echo "machine_name=$(hostname)"
+            echo "runner_name=${RUNNER_NAME:-}"
+          }                                             > "$OUT/machine.txt"         2>&1 || true
           rocminfo                                      > "$OUT/rocminfo.txt"        2>&1 || true
           sudo rocm-smi -a                              > "$OUT/rocm-smi.txt"        2>&1 || true
           sudo rocm-smi --showtoponuma                  > "$OUT/rocm-topo-numa.txt"  2>&1 || true
@@ -297,6 +301,14 @@ jobs:
           if sudo rocm-smi --showpids -d ${{ env.GPU }} 2>/dev/null | grep -E '^[0-9]+' >/dev/null; then
             echo "::warning::other processes are active on GPU ${{ env.GPU }} -- results may be noisy"
           fi
+
+      - name: Little Debug
+        run: |
+          echo "miopen user-db folder ${{ env.MODEL_PATH }}/../miopen-cache/user-db"
+          ls -la ${{ env.MODEL_PATH }}/../miopen-cache/user-db || true
+          echo "miopen kdb folder ${{ env.MODEL_PATH }}/../miopen-cache/kdb"
+          ls -la ${{ env.MODEL_PATH }}/../miopen-cache/kdb || true
+
 
       - name: Download MIGraphX Deb Artifact
         if: ${{ github.event.action != 'closed' }}
@@ -333,7 +345,7 @@ jobs:
           -v ${{ env.MODEL_PATH }}/../miopen-cache/kdb:/var/miopen/kdb
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
-          rocm/migraphx-ci-ubuntu:${{ needs.build_product.outputs.image_tag }} /bin/bash -c "apt-get update && apt-get install -y /src/AMDMIGraphX/deb-package/*.deb && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }}"
+          rocm/migraphx-ci-ubuntu:${{ needs.build_product.outputs.image_tag }} /bin/bash -c "ls -la /var/miopen/user-db && apt-get update && apt-get install -y /src/AMDMIGraphX/deb-package/*.deb && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }}"
 
       - name: Save execution metadata
         if: ${{ github.event.action != 'closed' }}
