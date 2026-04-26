@@ -186,6 +186,7 @@ jobs:
             "${{ inputs.runs_on }}"* | "linux-migraphx-mi250-1"*)
               GPU=0
               CPU="0-31"
+              MEM_NODE=0
               MODEL_PATH="/migraphx-models/models"
               ;;
             *)
@@ -195,14 +196,48 @@ jobs:
           esac
           export GPU
           export CPU
+          export MEM_NODE
           echo "GPU=$GPU" >> $GITHUB_ENV
           echo "CPU=$CPU" >> $GITHUB_ENV
+          echo "MEM_NODE=$MEM_NODE" >> $GITHUB_ENV
           echo "MODEL_PATH=$MODEL_PATH" >> $GITHUB_ENV
 
-      - name: Set GPU parameters
+      # MI250 (gfx90a) stable-perf setup:
+      # - setperfdeterminism caps SCLK at a sustainable boost frequency and
+      #   disables dynamic clock transitions, which is the recommended way to
+      #   eliminate run-to-run variance from DPM / thermal throttling.
+      # - Pin MCLK to the highest DPM state so HBM bandwidth is constant.
+      # - Raise the power cap to package TDP so power isn't the limiter.
+      #
+      # NOTE: this workflow runs on a k8s ARC victim pod which generally does
+      # NOT have the privileges (CAP_SYS_ADMIN / sysfs write) needed by these
+      # rocm-smi calls. Do not fail the run if any step is rejected -- record
+      # the error so the priv setup can be fixed later, and continue with
+      # whatever clock state the runner gave us.
+      - name: Set GPU parameters (MI250 deterministic, best-effort)
         if: ${{ github.event.action != 'closed' }}
-        run:
-          sudo rocm-smi --device ${{ env.GPU }} --setsrange 700 800 --autorespond y
+        continue-on-error: true
+        env:
+          DETERMINISM_SCLK_MHZ: "1700"
+          POWER_CAP_W: "560"
+        run: |
+          # Intentionally NOT using `set -e`: every rocm-smi call is best-effort
+          # because the k8s victim pod may lack privileges to write sysfs.
+          run_smi() {
+            local desc="$1"; shift
+            echo "::group::rocm-smi: $desc"
+            if ! sudo rocm-smi --device ${{ env.GPU }} "$@" --autorespond y 2>&1; then
+              echo "::warning::rocm-smi '$desc' failed (likely insufficient privileges on this runner) -- continuing without it"
+            fi
+            echo "::endgroup::"
+          }
+          run_smi "set perf determinism @ ${DETERMINISM_SCLK_MHZ} MHz" --setperfdeterminism "${DETERMINISM_SCLK_MHZ}"
+          run_smi "pin MCLK to highest DPM state"                      --setmclk 3
+          run_smi "raise power cap to ${POWER_CAP_W}W"                 --setpoweroverdrive "${POWER_CAP_W}"
+          # Always-readable status; useful even when the writes above were rejected.
+          sudo rocm-smi --device ${{ env.GPU }} --showclocks --showpower --showtemp 2>&1 || \
+            rocm-smi --device ${{ env.GPU }} --showclocks --showpower --showtemp 2>&1 || \
+            echo "::warning::could not read GPU status via rocm-smi"
 
       - name: Apply PR env from Build
         if: ${{ needs.build_product.outputs.branch_name != '' }}
@@ -241,21 +276,27 @@ jobs:
           mkdir -p ${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }} || true
           echo "TEST_RESULTS_PATH=${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}" >> $GITHUB_ENV
 
-      - name: Little debug
+      # Snapshot driver/clock/topology state alongside the results so any noisy
+      # numbers can be diagnosed after the fact (was the GPU hot? was something
+      # else using it? did the ROCm package versions drift?).
+      - name: Capture system & GPU state for reproducibility
         if: ${{ github.event.action != 'closed' }}
+        continue-on-error: true
         run: |
-          echo "results_path=${{ env.TEST_RESULTS_PATH }}"
-          echo "model_path=${{ env.MODEL_PATH }}" 
-          ls -l ${{ env.MODEL_PATH }} || true
-          echo "/migraphx-models"
-          ls -l /migraphx-models ||true
-          echo "What is inside /migraphx-models"
-          find /migraphx-models -maxdepth 1 -type d | xargs ls -la || true
-          echo "What is inside ${{ env.TEST_RESULTS_PATH }}"
-          find ${{ env.TEST_RESULTS_PATH }} -maxdepth 2 -type d | xargs ls -la || true
-          echo "Show results of df -h"
-          df -h || true
-          mount || true
+          OUT=${{ env.TEST_RESULTS_PATH }}/${{ steps.git_sha.outputs.git_sha }}/_env
+          mkdir -p "$OUT"
+          rocminfo                                      > "$OUT/rocminfo.txt"        2>&1 || true
+          sudo rocm-smi -a                              > "$OUT/rocm-smi.txt"        2>&1 || true
+          sudo rocm-smi --showtoponuma                  > "$OUT/rocm-topo-numa.txt"  2>&1 || true
+          sudo rocm-smi --showpids                      > "$OUT/rocm-smi-pids.txt"   2>&1 || true
+          rocm-bandwidth-test -t 2>/dev/null            > "$OUT/rocm-bw.txt"         2>&1 || true
+          uname -a                                      > "$OUT/uname.txt"           2>&1 || true
+          numactl --hardware 2>/dev/null                > "$OUT/numa.txt"            2>&1 || true
+          dpkg -l 'rocm*' 'hip*' 'miopen*' 'rccl*' 2>/dev/null \
+                                                        > "$OUT/rocm-pkgs.txt"       2>&1 || true
+          if sudo rocm-smi --showpids -d ${{ env.GPU }} 2>/dev/null | grep -E '^[0-9]+' >/dev/null; then
+            echo "::warning::other processes are active on GPU ${{ env.GPU }} -- results may be noisy"
+          fi
 
       - name: Download MIGraphX Deb Artifact
         if: ${{ github.event.action != 'closed' }}
@@ -270,9 +311,17 @@ jobs:
           docker run
           --name perf-test-$GITHUB_RUN_ID
           --cpuset-cpus=${{ env.CPU }}
+          --cpuset-mems=${{ env.MEM_NODE }}
+          --shm-size=8g
+          --ulimit memlock=-1:-1
           -e ROCR_VISIBLE_DEVICES=${{ env.GPU }}
+          -e HIP_VISIBLE_DEVICES=0
           -e TZ=America/Chicago
           -e TARGET=gpu
+          -e HIP_FORCE_DEV_KERNARG=1
+          -e MIOPEN_FIND_MODE=NORMAL
+          -e MIOPEN_USER_DB_PATH=/var/miopen/user-db
+          -e MIOPEN_CUSTOM_CACHE_DIR=/var/miopen/kdb
           --device=/dev/dri
           --device=/dev/kfd
           --network=host
@@ -280,6 +329,8 @@ jobs:
           -v ${{ env.MODEL_PATH }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
+          -v ${{ env.MODEL_PATH }}/../miopen-cache/user-db:/var/miopen/user-db
+          -v ${{ env.MODEL_PATH }}/../miopen-cache/kdb:/var/miopen/kdb
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
           rocm/migraphx-ci-ubuntu:${{ needs.build_product.outputs.image_tag }} /bin/bash -c "apt-get update && apt-get install -y /src/AMDMIGraphX/deb-package/*.deb && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }}"
@@ -328,9 +379,22 @@ jobs:
           fi
           docker image prune -f  || true
 
-      - name: Reset GPU parameters to default
+      # Best-effort cleanup. The k8s victim pod may not have privileges to
+      # touch GPU clocks/power; in that case there's nothing to reset anyway.
+      - name: Reset GPU parameters to default (best-effort)
         if: ${{ always() && github.event.action != 'closed' }}
-        run: sudo rocm-smi --device ${{ env.GPU }} --resetclocks
+        continue-on-error: true
+        run: |
+          run_smi() {
+            local desc="$1"; shift
+            if ! sudo rocm-smi --device ${{ env.GPU }} "$@" --autorespond y 2>&1; then
+              echo "::warning::rocm-smi reset '$desc' failed (likely insufficient privileges on this runner)"
+            fi
+          }
+          run_smi "reset perf determinism" --resetperfdeterminism
+          run_smi "reset power overdrive"  --resetpoweroverdrive
+          run_smi "reset clocks"           --resetclocks
+          run_smi "set perf level auto"    --setperflevel auto
 
       - name: Clean closed PR data
         if: ${{ github.event.action == 'closed' }}
