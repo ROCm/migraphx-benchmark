@@ -304,10 +304,10 @@ jobs:
 
       - name: Little Debug
         run: |
-          echo "miopen user-db folder ${{ env.MODEL_PATH }}/../miopen-cache/user-db"
-          ls -la ${{ env.MODEL_PATH }}/../miopen-cache/user-db || true
-          echo "miopen kdb folder ${{ env.MODEL_PATH }}/../miopen-cache/kdb"
-          ls -la ${{ env.MODEL_PATH }}/../miopen-cache/kdb || true
+          echo "miopen user-db folder /mnt/migraphx-perf-work/AMD/miopen-cache/user-db"
+          ls -la /mnt/migraphx-perf-work/AMD/miopen-cache/user-db || true
+          echo "miopen kdb folder /mnt/migraphx-perf-work/AMD/miopen-cache/kdb"
+          ls -la /mnt/migraphx-perf-work/AMD/miopen-cache/kdb || true
 
 
       - name: Download MIGraphX Deb Artifact
@@ -341,8 +341,8 @@ jobs:
           -v ${{ env.MODEL_PATH }}:/models:ro
           -v $GITHUB_WORKSPACE/${{ env.UTILS_DIR }}/scripts:/migraphx/sh:ro
           -v ${{ env.TEST_RESULTS_PATH }}/:/data/test-results
-          -v ${{ env.MODEL_PATH }}/../miopen-cache/user-db:/var/miopen/user-db
-          -v ${{ env.MODEL_PATH }}/../miopen-cache/kdb:/var/miopen/kdb
+          -v /mnt/migraphx-perf-work/AMD/miopen-cache/user-db:/var/miopen/user-db
+          -v /mnt/migraphx-perf-work/AMD/miopen-cache/kdb:/var/miopen/kdb
           -v $GITHUB_WORKSPACE/:/src/AMDMIGraphX:rw
           --workdir /migraphx/sh
           rocm/migraphx-ci-ubuntu:${{ needs.build_product.outputs.image_tag }} /bin/bash -c "ls -la /var/miopen/user-db && apt-get update && apt-get install -y /src/AMDMIGraphX/deb-package/*.deb && DRIVER=/opt/rocm/bin/migraphx-driver ./performance_tests.sh ${{ inputs.model_timeout }}"
