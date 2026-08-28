@@ -47,9 +47,13 @@ on:
         type: string
         description: Self-hosted runner label (ARC scale set linux-migraphx-mi250-1)
         required: true
+      gh_app_client_id:
+        type: string
+        description: Client ID of the GitHub App installed on the benchmark utils org
+        required: true
     secrets:
-      BENCHMARK_UTILS_READ_TOKEN:
-        description: Token with read access to benchmark utils repo
+      GH_APP_PRIVATE_KEY:
+        description: Private key of the GitHub App used to read the benchmark utils repo
         required: true
 
 env:
@@ -253,13 +257,34 @@ jobs:
           ref: ${{ env.BRANCH_NAME }}
           repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
 
+      # The App is installed on the utils repo's org, which differs from the org
+      # running this workflow, so the token has to be scoped to that owner.
+      - name: Split benchmark utils owner and repo
+        if: ${{ github.event.action != 'closed' }}
+        id: utils_repo
+        env:
+          BENCHMARK_UTILS_REPO: ${{ inputs.benchmark_utils_repo }}
+        run: |
+          echo "owner=${BENCHMARK_UTILS_REPO%%/*}" >> $GITHUB_OUTPUT
+          echo "name=${BENCHMARK_UTILS_REPO##*/}" >> $GITHUB_OUTPUT
+
+      - name: Generate benchmark utils token
+        if: ${{ github.event.action != 'closed' }}
+        id: utils_token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1  # v3
+        with:
+          client-id: ${{ inputs.gh_app_client_id }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ steps.utils_repo.outputs.owner }}
+          repositories: ${{ steps.utils_repo.outputs.name }}
+
       - name: Checkout utils
         if: ${{ github.event.action != 'closed' }}
         uses: actions/checkout@v6
         with:
           repository: ${{ inputs.benchmark_utils_repo }}
           path: ${{ env.UTILS_DIR }}
-          ssh-key: ${{ secrets.BENCHMARK_UTILS_READ_TOKEN }}
+          token: ${{ steps.utils_token.outputs.token }}
 
       - name: Get git SHA
         if: ${{ github.event.action != 'closed' }}
